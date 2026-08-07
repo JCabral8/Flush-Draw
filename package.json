@@ -1,0 +1,21 @@
+{
+  "name": "poker-golf",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Every golf shot is a poker hand.",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
+    "sim": "tsx tools/cli.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@vitest/coverage-v8": "^2.1.9",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.9"
+  }
+}

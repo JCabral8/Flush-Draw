@@ -48,3 +48,9 @@ Reasoning: decisions in one system must never perturb another's rolls, or ghosts
 
 **D15 — Tier difficulty only ever tightens long-side/resources, never loosens short-side.**
 Encoded in §12 table. Reasoning: pillar 2 ("the asymmetry is the whole game") must survive difficulty tuning in both directions.
+
+**D16 — The reshuffle penalty attaches to the stroke that caused it, even a holing stroke.**
+Draw-back-to-7 happens as part of every stroke; if that draw exhausts the deck, the +1 lands on the hole just played — including the edge case where the ball is already in the cup. Reasoning: the cost belongs to the cards you spent, keeps "every stroke = play, resolve, draw" a single atomic rule, and avoids a weird deferred penalty appearing on the next tee. The scorecard event names the reshuffle so it never reads as a phantom stroke. (Sim, M1.)
+
+**D17 — Junk-selection scatter is zero.**
+Multi-card non-hands score as High Card, and High Card has no scatter, so pip dumps are exact. Reasoning: junk selections are a precision tool by design (D2); giving them scatter would punish the only reason to use them. (Sim, M1.)
