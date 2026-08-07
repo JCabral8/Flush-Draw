@@ -452,6 +452,66 @@ describe('determinism & replay (§16): state ≡ fold(seed, actions)', () => {
   })
 })
 
+describe('lastStroke: the sim reports what happened, for animation', () => {
+  it('a clean landing reports from/landed/final positions', () => {
+    let st = baseState()
+    setBall(st, { remaining: 200, lie: 'fairway', pin: 'center', effLength: 310 })
+    setHand(st, ['5S', '5D'])
+    st = reduce(st, { type: 'swing', cards: ['5S', '5D'] }) // 90 from pos 110
+    expect(st.lastStroke).toEqual({
+      kind: 'swing', struck: 90, fromPos: 110, landedPos: 200, finalPos: 200, outcome: 'land',
+    })
+  })
+
+  it('water reports the splash point and the drop point', () => {
+    let st = baseState({}, 'muni-04')
+    setBall(st, { remaining: 200, lie: 'fairway', pin: 'center', effLength: 355 })
+    setHand(st, ['2S'])
+    st = reduce(st, { type: 'swing', cards: ['2S'] }) // lands 197 (water), drops 179
+    expect(st.lastStroke).toMatchObject({
+      kind: 'swing', outcome: 'water', landedPos: 197, finalPos: 179,
+    })
+  })
+
+  it('OOB reports the landing past the fringe and the return', () => {
+    let st = baseState()
+    setBall(st, { remaining: 10, lie: 'fairway', pin: 'center', effLength: 310 })
+    setHand(st, ['5S'])
+    st = reduce(st, { type: 'swing', cards: ['5S'] }) // 45 → 35 long
+    expect(st.lastStroke).toMatchObject({
+      kind: 'swing', outcome: 'oob', fromPos: 300, landedPos: 345, finalPos: 300,
+    })
+  })
+
+  it('reaching the green and holing out are distinct outcomes', () => {
+    let st = baseState()
+    setBall(st, { remaining: 100, lie: 'fairway', pin: 'center', effLength: 310 })
+    setHand(st, ['5S', '5D'])
+    st = reduce(st, { type: 'swing', cards: ['5S', '5D'] })
+    expect(st.lastStroke).toMatchObject({ kind: 'swing', outcome: 'green' })
+
+    setBall(st, { remaining: 85, lie: 'fairway', pin: 'center', effLength: 310 })
+    setHand(st, ['2S', '2H'])
+    st = reduce(st, { type: 'swing', cards: ['2S', '2H'] })
+    expect(st.lastStroke).toMatchObject({ kind: 'swing', outcome: 'holed', finalPos: 310 })
+  })
+
+  it('putts report roll, end distance, and blew-past', () => {
+    let st = baseState()
+    setGreen(st, 20, false, 'center')
+    setHand(st, ['TS'])
+    st = reduce(st, { type: 'putt', cards: ['TS'] }) // 30 vs 20
+    expect(st.lastStroke).toEqual({
+      kind: 'putt', fromFt: 20, rolledFt: 30, endFt: 10, holed: false, blewPast: true,
+    })
+    setHand(st, ['2S'])
+    st = reduce(st, { type: 'putt', cards: ['2S'] }) // 8 downhill vs 10 → holed
+    expect(st.lastStroke).toEqual({
+      kind: 'putt', fromFt: 10, rolledFt: 8, endFt: 0, holed: true, blewPast: false,
+    })
+  })
+})
+
 describe('score names', () => {
   it.each([
     [-3, 'albatross'], [-2, 'eagle'], [-1, 'birdie'], [0, 'par'],

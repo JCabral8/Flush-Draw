@@ -54,3 +54,12 @@ Draw-back-to-7 happens as part of every stroke; if that draw exhausts the deck, 
 
 **D17 — Junk-selection scatter is zero.**
 Multi-card non-hands score as High Card, and High Card has no scatter, so pip dumps are exact. Reasoning: junk selections are a precision tool by design (D2); giving them scatter would punish the only reason to use them. (Sim, M1.)
+
+**D18 — The sim reports stroke physics (`lastStroke`); UI animates the truth.**
+Rather than the UI re-deriving or guessing ball flight, the reducer records struck/landed/final positions per stroke as part of state. Reasoning: honest animation with zero duplicated logic, and it's replay-safe. Debt logged: sim narration strings (`lastEvents`) are shown verbatim in the M2 UI; they become localization keys in M5.
+
+**D19 — M2 ships the full front 9 behind the one-hole gate.**
+The milestone asks for one hole; the engine already plays nine, so "next hole" simply continues the round and a scorecard appears at the end. Reasoning: it costs nothing, playtesting the deck economy requires multi-hole play (the 52-card deck across 9 holes IS the game), and M3 remains about clubs/hazards/run structure — not about unlocking holes 2–9.
+
+**D20 — Text sizes are still px in M2.**
+GDD demands full text scaling with no hardcoded font sizes; the M2 layout uses px/clamp. Accepted as scoped debt until the M7 accessibility pass, where type moves to rem with a scale setting.

@@ -1,0 +1,408 @@
+/* POKER GOLF — dusk at a municipal course.
+   Flat vector, high contrast, slightly grubby.
+   Signal orange (--accent) is reserved for the cup and the selected hand. */
+
+:root {
+  --sky-deep: #0d2b31;
+  --sky-mid: #14454d;
+  --sky-low: #7a5a33;
+  --dusk-amber: #d98e39;
+  --ground: #0d2721;
+  --cream: #f4ead0;
+  --cream-dim: #cfc4a8;
+  --ink: #14110d;
+  --red-suit: #b8442e;
+  --accent: #ff6a00;
+  --chip-bg: #1c3f38;
+  --warn: #e0b64e;
+  --good: #7fbf98;
+  --bad: #d97e5f;
+  --card-w: clamp(44px, 12.6vw, 56px);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--sky-deep);
+  color: var(--cream);
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  overflow: hidden;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.num {
+  font-family: 'Arial Narrow', 'Helvetica Neue', system-ui, sans-serif;
+  font-stretch: condensed;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.shell {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  max-width: 520px;
+  margin: 0 auto;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+  background: linear-gradient(to bottom, var(--sky-deep) 0%, #0f2d29 78%, #0d2721 100%);
+}
+
+.brand {
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.34em;
+  padding: 8px 0 2px;
+  color: var(--cream-dim);
+}
+
+/* ---- HUD ---- */
+.hud {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 4px 12px 0;
+  min-height: 44px;
+}
+.hud-hole {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.hud-n {
+  font-size: 11px;
+  color: var(--cream-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+.hud-name {
+  font-size: 17px;
+  font-weight: 700;
+}
+.hud-par {
+  font-size: 11px;
+  color: var(--cream-dim);
+}
+.hud-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.hud-wind {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: 12px;
+  line-height: 1.25;
+}
+.hud-score {
+  font-size: 24px;
+  font-weight: 700;
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  line-height: 1;
+}
+.hud-stroke {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--cream-dim);
+  letter-spacing: 0.08em;
+  margin-top: 2px;
+}
+
+/* Suit tints: red suits warm, black suits cool-cream (colorblind-safe glyphs). */
+.suit-H,
+.suit-D {
+  color: #e8907a;
+}
+.suit-S,
+.suit-C {
+  color: var(--cream);
+}
+
+/* ---- course canvas ---- */
+.course {
+  flex: 1 1 0;
+  min-height: 170px;
+  position: relative;
+  overflow: hidden;
+  border-radius: 0 0 2px 2px;
+  /* Dusk lives here: teal fading to a low amber horizon at the strip line. */
+  background: linear-gradient(
+    to bottom,
+    var(--sky-deep) 0%,
+    var(--sky-mid) 30%,
+    #3d5045 48%,
+    var(--sky-low) 58%,
+    var(--dusk-amber) 65%,
+    #b06f2e 66%,
+    var(--ground) 67%,
+    var(--ground) 100%
+  );
+}
+.course canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.eventline {
+  min-height: 20px;
+  padding: 0 14px;
+  font-size: 12.5px;
+  font-style: italic;
+  color: var(--cream-dim);
+  text-align: center;
+}
+.tip {
+  text-align: center;
+  font-size: 11.5px;
+  color: var(--warn);
+  padding-top: 2px;
+}
+
+/* ---- bottom stack (all interaction lives here) ---- */
+.bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 6px 10px calc(10px + env(safe-area-inset-bottom));
+}
+
+.status {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding: 0 4px;
+}
+.status-dist {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+}
+.status-n {
+  font-size: 44px;
+  font-weight: 700;
+  line-height: 0.9;
+}
+.status-unit {
+  font-size: 12px;
+  color: var(--cream-dim);
+  max-width: 90px;
+  line-height: 1.15;
+}
+.status-lie {
+  display: flex;
+  gap: 6px;
+}
+.chip {
+  background: var(--chip-bg);
+  border-radius: 20px;
+  font-size: 11.5px;
+  padding: 4px 10px;
+  color: var(--cream);
+  white-space: nowrap;
+}
+.chip-dim {
+  color: var(--cream-dim);
+}
+
+/* ---- the hand ---- */
+.hand {
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+}
+.card {
+  width: var(--card-w);
+  aspect-ratio: 44 / 62;
+  border-radius: 7px;
+  border: 1.5px solid rgba(0, 0, 0, 0.35);
+  background: var(--cream);
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  font-weight: 700;
+  transition:
+    transform 130ms ease,
+    box-shadow 130ms ease;
+  position: relative;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+}
+.card:disabled {
+  opacity: 0.75;
+}
+.card .card-rank {
+  font-size: calc(var(--card-w) * 0.42);
+  line-height: 1;
+}
+.card .card-suit {
+  font-size: calc(var(--card-w) * 0.4);
+  line-height: 1;
+}
+.card.suit-H,
+.card.suit-D {
+  color: var(--red-suit);
+}
+.card.suit-S,
+.card.suit-C {
+  color: var(--ink);
+}
+.card.sel {
+  transform: translateY(-12px);
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 1.5px var(--accent),
+    0 6px 12px rgba(0, 0, 0, 0.5);
+}
+.ace-toggle {
+  position: absolute;
+  bottom: -9px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--ink);
+  color: var(--cream);
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 12px;
+  white-space: nowrap;
+}
+
+/* ---- action bar ---- */
+.actionbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+}
+.preview {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+  min-width: 0;
+}
+.preview-hand {
+  font-size: 15px;
+  font-weight: 700;
+}
+.preview-dist {
+  font-size: 13px;
+  color: var(--cream-dim);
+}
+.preview-warn {
+  font-size: 11.5px;
+  color: var(--warn);
+}
+.go {
+  min-width: 128px;
+  min-height: 52px;
+  border: none;
+  border-radius: 10px;
+  background: var(--cream);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  cursor: pointer;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.5);
+  transition:
+    transform 90ms ease,
+    opacity 90ms ease;
+}
+.go:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
+}
+.go:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* ---- hole-complete overlay ---- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(7, 20, 18, 0.72);
+  z-index: 10;
+}
+.overlay-card {
+  background: var(--sky-deep);
+  border: 1.5px solid rgba(244, 234, 208, 0.25);
+  border-radius: 14px;
+  padding: 26px 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  max-width: 88vw;
+}
+.overlay-score {
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+.overlay-score.good {
+  color: var(--good);
+}
+.overlay-score.bad {
+  color: var(--bad);
+}
+.overlay-sub {
+  font-size: 13px;
+  color: var(--cream-dim);
+}
+.overlay-total {
+  font-size: 20px;
+  font-weight: 700;
+}
+.scorecard {
+  border-collapse: collapse;
+  margin-top: 4px;
+}
+.scorecard td {
+  padding: 2px 6px;
+  text-align: center;
+  font-size: 12.5px;
+  border: 1px solid rgba(244, 234, 208, 0.15);
+}
+.scorecard .sc-par {
+  color: var(--cream-dim);
+  font-size: 10.5px;
+}
+.scorecard .good {
+  color: var(--good);
+}
+.scorecard .bad {
+  color: var(--bad);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .go {
+    transition: none;
+  }
+}

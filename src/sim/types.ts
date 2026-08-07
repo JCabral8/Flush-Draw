@@ -110,11 +110,39 @@ export interface SimState {
   phase: Phase
   /** Narration of what the last action did (UI/CLI); replaced each action. */
   lastEvents: string[]
+  /** Physics of the last action, for animation. Replaced each action. */
+  lastStroke: StrokeResult | null
 }
 
 export type SimAction =
   | { type: 'swing'; cards: CardId[] }
   | { type: 'putt'; cards: CardId[]; aceValues?: Record<CardId, 1 | 14> }
+
+/**
+ * What the last action physically did — part of state so the UI animates the
+ * truth (positions in yards from the tee; past-cup positions exceed effLength).
+ */
+export interface SwingResult {
+  kind: 'swing'
+  struck: number
+  fromPos: number
+  /** Where the ball first came down. */
+  landedPos: number
+  /** Where it ended up after any drop/replay. */
+  finalPos: number
+  outcome: 'holed' | 'green' | 'land' | 'fringe' | 'water' | 'oob'
+}
+
+export interface PuttResult {
+  kind: 'putt'
+  fromFt: number
+  rolledFt: number
+  endFt: number
+  holed: boolean
+  blewPast: boolean
+}
+
+export type StrokeResult = SwingResult | PuttResult
 
 /** Thrown on illegal actions. UI pre-validates; CLI/tests catch. */
 export class SimError extends Error {

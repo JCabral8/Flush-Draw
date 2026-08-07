@@ -10,8 +10,9 @@ Every golf shot is a poker hand. Better hands hit farther — but the hole doesn
 | Milestone | State |
 |---|---|
 | 0 — Design lock | ✅ |
-| 1 — Headless sim core | ✅ this commit |
-| 2 — Playable core (one hole, real UI) | next |
+| 1 — Headless sim core | ✅ |
+| 2 — Playable core (phone browser, real feel) | ✅ this commit |
+| 3 — Full round (clubs, hazards, run structure) | next |
 
 ## Architecture
 
@@ -37,9 +38,19 @@ The UI (M2+: React 18 + PixiJS + Zustand, wrapped in Capacitor) subscribes to th
 
 ```bash
 npm install
-npm test              # 325 tests
+npm run dev           # play in a browser (phone viewport recommended)
+npm test              # 330 tests
 npm run coverage      # sim/ coverage (gate: ≥85%, currently >96% on every metric)
 npm run typecheck     # TS strict, zero any
-npm run sim           # watch a full random 9-hole round
-npm run sim -- --seed muni --quiet   # scorecard only, reproducible by seed
+npm run sim           # watch a full random 9-hole round in the terminal
+npm run build         # single-file dist/index.html (694 KB, fully offline)
+npm run artifact      # + dist/artifact.html fragment for claude.ai publishing
+npx tsx tools/smoke.ts       # headless phone-viewport screenshot smoke test
+npx tsx tools/smoke-putt.ts  # drives a hole to the green and putts out
 ```
+
+UI structure (`src/ui/`): a Zustand store wraps `initRound/reduce`; React renders
+HUD/hand/action bar from sim state; `canvas/PixiCourse.ts` (PixiJS, flat vector,
+zero raster assets) draws the course strip and green close-up and animates the
+`lastStroke` physics the sim reports. Signal orange appears on exactly two
+things: the cup and the selected hand.

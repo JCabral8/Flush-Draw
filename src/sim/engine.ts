@@ -22,6 +22,7 @@ import {
   type SimAction,
   type SimState,
   type SwingLie,
+  type SwingResult,
 } from './types'
 
 /** Start a 9-hole round. Same (seed, holes, config) → identical round, always. */
@@ -53,6 +54,7 @@ export function initRound(
     scores: [],
     phase: 'swing',
     lastEvents: [],
+    lastStroke: null,
   }
   state.deck = shuffle(makeDeck(), state.rng.deck)
   drawTo(state, [])
@@ -190,12 +192,18 @@ function reduceSwing(state: SimState, cards: readonly CardId[], events: string[]
   )
 
   // Travel is always toward the cup; 'long' side only ever means the fringe.
+  const fromPos = ball.side === 'short' ? hole.effLength - ball.remaining : hole.effLength + ball.remaining
   const net = ball.side === 'short' ? ball.remaining - struck : struck - ball.remaining
   const side = net >= 0 ? 'short' : 'long'
   const rem = Math.abs(net)
+  const landedPos = side === 'short' ? hole.effLength - rem : hole.effLength + rem
+  const stroke = (outcome: SwingResult['outcome'], finalPos: number): void => {
+    state.lastStroke = { kind: 'swing', struck, fromPos, landedPos, finalPos, outcome }
+  }
 
   if (rem <= APPROACH_GIMME_YDS) {
     events.push('IN THE HOLE from the fairway!')
+    stroke('holed', hole.effLength)
     hole.ball = null
     discardPlayed(state, cards)
     drawTo(state, events)
@@ -208,6 +216,7 @@ function reduceSwing(state: SimState, cards: readonly CardId[], events: string[]
       hole.ball = null
       hole.green = { distFt: rem * 3, downhill: hole.pin === 'back' }
       state.phase = 'putt'
+      stroke('green', landedPos)
       events.push(`On the green — ${hole.green.distFt} ft${hole.green.downhill ? ', downhill' : ''}.`)
     } else {
       const pos = hole.effLength - rem
@@ -217,21 +226,25 @@ function reduceSwing(state: SimState, cards: readonly CardId[], events: string[]
         const dropPos = waterDropPos(spec, pos)
         const dropLie: SwingLie = dropPos === 0 ? 'tee' : 'fairway'
         hole.ball = { remaining: hole.effLength - dropPos, side: 'short', lie: dropLie }
+        stroke('water', dropPos)
         events.push(
           `Into the water — +1 stroke, drop back at ${hole.ball.remaining} yds out.`,
         )
       } else {
         hole.ball = { remaining: rem, side: 'short', lie }
+        stroke('land', landedPos)
         events.push(`${rem} yds out, on ${LIE_LABELS[lie]}.`)
       }
     }
   } else if (rem <= FRINGE_WINDOW) {
     hole.ball = { remaining: rem, side: 'long', lie: 'fringe' }
+    stroke('fringe', landedPos)
     events.push(`Flew the pin — ${rem} yds long, on the fringe. It's all downhill from here.`)
   } else {
     // Past the fringe: out of bounds. Stroke and distance (D12).
     hole.strokes++
     hole.ball = { ...ball }
+    stroke('oob', fromPos)
     events.push(
       `${rem} yds LONG — out of bounds. +1 stroke, replaying from ${ball.remaining} yds.`,
     )
@@ -265,6 +278,14 @@ function reducePutt(
   const plan = planPutt(cards, aceValues, green, hole.pin, state.config.puttMaxCards)
   hole.strokes++
   const outcome = resolvePutt(plan, green, state.config.gimmeFt)
+  state.lastStroke = {
+    kind: 'putt',
+    fromFt: green.distFt,
+    rolledFt: outcome.rolled,
+    endFt: outcome.holed ? 0 : outcome.next!.distFt,
+    holed: outcome.holed,
+    blewPast: outcome.blewPast,
+  }
   events.push(
     `Putt [${cards.map(cardLabel).join(' ')}] rolls ${outcome.rolled} ft (×${plan.factor}) from ${green.distFt} ft.`,
   )
