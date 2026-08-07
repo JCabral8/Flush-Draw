@@ -1,0 +1,50 @@
+# DECISIONS.md
+
+Running log of design and technical decisions made without asking, per brief §10. Newest at the bottom. Entries marked ⚠ are the ones I'd call closest to 50/50.
+
+---
+
+**D1 — Selected cards are the hand; no kickers.**
+A stroke's hand is exactly the cards selected (1–5). No auto-best-hand from 7, no kickers riding along. Reasoning: makes card spend explicit and keeps the deck economy honest — you always pay exactly what you play. Also simplifies putting hand-off (played cards leave the hand, period).
+
+**D2 — Any selection is legal; junk scores as High Card.**
+Rather than rejecting non-hands, a junk selection scores as High Card with all selected pips summed. Reasoning: no invalid-input dead ends, and it quietly creates a "pip dump" fine-control tool that costs deck cards — a real decision, not a trap. The UI warns before a junk swing.
+
+**D3 — Pip yards: +1 yd per rank pip of played cards.** ⚠
+Addition to the brief's formula (folded into EffectiveBase). Reasoning: near-continuous distance targeting turns hand choice into aiming, not just tiering; high cards gain drive value exactly where they're a putting liability, sharpening the hoard-or-spend dilemma; the printed base table stays the headline. Retreat path if playtests find it muddy: pips on High Card and Pair only.
+
+**D4 — Accuracy = rank-scaled scatter, previewed as a range.** ⚠
+The brief's `± Accuracy` term is specified as: ±0 (High Card/Pair), ±2 (Two Pair/Trips), ±5 (Straight/Flush), ±8 (FH/Quads), ±12 (SF/RF), uniform from a dedicated seeded stream, always shown pre-swing, never on putts. Reasoning: "power is inaccurate" reinforces the central asymmetry; zero scatter on precision hands keeps the short game a pure calculation (pillar 1). Fallback if it reads as unfair in M2: deterministic worst-case scatter.
+
+**D5 — Stroke cap at par + 4 (pick up, score par+4, move on).**
+Not in the brief. Reasoning: guarantees no dead-end states (a milestone 3 gate), bounds deck-churn stalling, and caps a disaster hole at a survivable number. Mirrors real golf's net-double-bogey pickup convention.
+
+**D6 — One slope number: green factor F ∈ {2.5, 3, 4}.**
+Front pin = uphill F2.5, Center = flat F3, Back / after-overshoot / fringe = downhill F4. Reasoning: the brief specifies ×3 flat and ×4 downhill; extending the same scalar to pin slope expresses the whole green system in one legible number instead of a second mechanic.
+
+**D7 — Fringe = putting mode, always downhill.**
+The brief gives fringe "×0.8 next stroke." Interpreted as: full swings from fringe are ×0.8, but the sane play is putting at F4. Reasoning: a 40-yd-minimum chip from 5 yds behind the green would be an unwinnable trap; downhill putting is the intended punishment and reuses D6.
+
+**D8 — Wind applies per-card, proportionally.**
+`WindMod = 1 + 0.15 × (nBoost − nDrag) / nPlayed`. Reasoning: makes flushes the full-exposure read the brief asks for while mixed hands dilute naturally; one formula, no special cases; never applies to putts.
+
+**D9 — Business model: free + single $5.99 unlock ("Members Card").** ⚠
+Tier 1 + Daily + Practice free forever; one IAP unlocks everything else; cosmetics-only currency. Reasoning: paid charts need a halo we don't have; the free Daily is a self-demonstrating acquisition loop; flipping to premium later is config, not design. No ads/energy/consumables/pay-for-power under either model.
+
+**D10 — Putter baseline vs. Blade.**
+Brief lists "Putter: +1 card on putts" as a club and putting as "1–2 cards." Resolved: putting baseline is 1–2 cards; the starting **Blade** variant carries the +1 perk (1–3). Reasoning: keeps the always-in-bag sixth slot meaningful (variants differ) without contradicting §2.5.
+
+**D11 — Marguerite's wording.**
+"2s, 3s, 4s never leave your hand when you draw" implemented as: played low cards return to hand after the stroke (still count for the hand). Reasoning: the strongest coherent reading; tiered Rare accordingly.
+
+**D12 — OOB/long-hazard = stroke-and-distance; water = drop behind on the line.**
+Long >20 replays from the previous position (+1); water drops at nearest fairway point behind the water segment (+1). Reasoning: two distinct, golf-authentic penalties — water is survivable positioning, long is the wall.
+
+**D13 — Runs are course-scoped; holes are authored, never generated.**
+A run picks a course; its three nines are authored routings of that course. Reasoning: the brief's own definition-of-done demands designed holes; generation is reserved for nothing.
+
+**D14 — Named RNG streams: deck, wind(+pin), scatter, cart, caddie.**
+Reasoning: decisions in one system must never perturb another's rolls, or ghosts/dailies diverge under identical seeds with different play styles… they don't diverge (actions are logged), but *counterfactual fairness* holds: rerolling your hand can't change the wind. Cheap to do now, impossible to retrofit.
+
+**D15 — Tier difficulty only ever tightens long-side/resources, never loosens short-side.**
+Encoded in §12 table. Reasoning: pillar 2 ("the asymmetry is the whole game") must survive difficulty tuning in both directions.
