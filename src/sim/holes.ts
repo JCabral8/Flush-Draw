@@ -70,7 +70,9 @@ export function validateHole(hole: HoleSpec): string[] {
 
 export function validateCourse(holes: readonly HoleSpec[]): string[] {
   const problems: string[] = []
-  if (holes.length !== 9) problems.push(`a round needs 9 holes, got ${holes.length}`)
+  if (holes.length !== 9 && holes.length !== 27) {
+    problems.push(`a course needs 9 or 27 holes, got ${holes.length}`)
+  }
   const ids = new Set(holes.map((h) => h.id))
   if (ids.size !== holes.length) problems.push('duplicate hole ids')
   for (const hole of holes) {

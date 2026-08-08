@@ -12,8 +12,9 @@ Every golf shot is a poker hand. Better hands hit farther — but the hole doesn
 | 0 — Design lock | ✅ |
 | 1 — Headless sim core | ✅ |
 | 2 — Playable core (phone browser, real feel) | ✅ |
-| 3 — Full round (club system, hazards, round-end) | ✅ this commit |
-| 4 — Meta (caddies, tour tiers, cuts, save/load) | next |
+| 3 — Full round (club system, hazards, round-end) | ✅ |
+| 4 — Meta (caddies, tour tiers, cuts, save/resume) | ✅ this commit |
+| 5 — Content (24 clubs, 40+ caddies, courses, challenges) | next |
 
 ## Architecture
 
@@ -40,7 +41,7 @@ The UI (M2+: React 18 + PixiJS + Zustand, wrapped in Capacitor) subscribes to th
 ```bash
 npm install
 npm run dev           # play in a browser (phone viewport recommended)
-npm test              # 354 tests
+npm test              # 379 tests
 npm run coverage      # sim/ coverage (gate: ≥85%, currently >96% on every metric)
 npm run typecheck     # TS strict, zero any
 npm run sim           # watch a full random 9-hole round in the terminal

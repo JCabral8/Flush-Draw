@@ -323,7 +323,7 @@ describe('action validation', () => {
 
   it('rejects actions after the round is over', () => {
     let st = baseState()
-    st.phase = 'roundComplete'
+    st.phase = 'runComplete'
     st.hole = null
     expect(() => reduce(st, { type: 'swing', cards: ['2S'] })).toThrow(/over/)
     expect(() => reduce(st, { type: 'putt', cards: ['2S'] })).toThrow(/over/)
@@ -394,7 +394,7 @@ describe('determinism & replay (§16): state ≡ fold(seed, actions)', () => {
     const states = [st]
     const actions: SimAction[] = []
     let guard = 0
-    while (st.phase !== 'roundComplete' && guard++ < 400) {
+    while (st.phase !== 'runComplete' && guard++ < 400) {
       const onGreen = st.phase === 'putt'
       // Deterministic naive policy: play the single lowest card; declare aces low.
       const card = [...st.hand].sort()[0]!
@@ -425,7 +425,7 @@ describe('determinism & replay (§16): state ≡ fold(seed, actions)', () => {
     for (const seed of ['n1', 'n2', 'n3', 'n4', 'n5']) {
       const { states } = naivePlay(seed)
       const final = states[states.length - 1]!
-      expect(final.phase).toBe('roundComplete')
+      expect(final.phase).toBe('runComplete')
       expect(final.scores.length).toBe(9)
       final.scores.forEach((s, i) => {
         expect(s).toBeGreaterThanOrEqual(1)

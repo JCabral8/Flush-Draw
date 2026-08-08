@@ -1,16 +1,23 @@
 import { create } from 'zustand'
 import {
   CLUBS,
+  DEFAULT_CONFIG,
   initRound,
   reduce,
+  replay,
   SimError,
   SUNNYVALE_FRONT_9,
+  SUNNYVALE_RUN,
+  tierConfig,
   cardFromId,
+  type CaddieId,
   type CardId,
   type ClubId,
+  type RunEndReason,
   type SimAction,
   type SimState,
 } from '../sim/index'
+import { clearRun, loadMeta, loadRun, saveMeta, saveRun, type SavedRun } from './storage'
 
 function freshSeed(): string {
   const bytes = new Uint8Array(6)
@@ -22,12 +29,28 @@ export interface HoleDone {
   score: number
   par: number
   name: string
-  roundOver: boolean
-  totals: { strokes: number; toPar: number } | null
+  runEnd: RunEndReason | null
+  totals: { strokes: number; toPar: number; unlocked: number | null } | null
+}
+
+/** Practice mode sentinel tier. */
+export const PRACTICE = 0
+
+function courseFor(tier: number): typeof SUNNYVALE_RUN {
+  return tier === PRACTICE ? SUNNYVALE_FRONT_9 : SUNNYVALE_RUN
+}
+
+function configFor(tier: number): ReturnType<typeof tierConfig> {
+  return tier === PRACTICE ? { ...DEFAULT_CONFIG } : tierConfig(tier)
 }
 
 interface UIStore {
+  screen: 'title' | 'game'
   sim: SimState
+  tier: number
+  actions: SimAction[]
+  hasSave: boolean
+  unlockedTier: number
   /** Snapshot before the last action — the canvas animates on this scene. */
   prevSim: SimState | null
   selected: CardId[]
@@ -46,9 +69,12 @@ interface UIStore {
   toggleAce(id: CardId): void
   toggleClub(id: ClubId): void
   play(): void
+  pickCaddie(pick: CaddieId | null): void
   animationDone(): void
   nextHole(): void
-  newRound(): void
+  startRun(tier: number): void
+  continueRun(): void
+  toTitle(): void
 }
 
 function strokeDurationMs(sim: SimState): number {
@@ -60,148 +86,237 @@ function strokeDurationMs(sim: SimState): number {
   return Math.min(ms, 2400)
 }
 
-export const useGame = create<UIStore>((set, get) => ({
-  sim: initRound(freshSeed(), SUNNYVALE_FRONT_9),
-  prevSim: null,
-  selected: [],
-  aceDecls: {},
-  armedClub: null,
-  animating: false,
-  animSeq: 0,
-  animMs: 400,
-  done: null,
-  error: null,
+const bootMeta = loadMeta()
 
-  toggleCard(id) {
-    const { sim, selected, animating, done, armedClub } = get()
-    if (animating || done) return
-    if (selected.includes(id)) {
-      set({ selected: selected.filter((c) => c !== id), error: null })
-      return
-    }
-    const max =
-      armedClub === 'punchIron'
-        ? 2
-        : sim.phase === 'putt'
-          ? sim.config.puttMaxCards + (sim.config.putter === 'blade' ? 1 : 0)
-          : 5
-    if (selected.length >= max) return
-    set({ selected: [...selected, id], error: null })
-  },
-
-  toggleClub(id) {
-    const { sim, armedClub, animating, done } = get()
-    if (animating || done) return
-    if (armedClub === id) {
-      set({ armedClub: null, error: null })
-      return
-    }
-    const spec = CLUBS[id]
-    if (spec.kind === 'passive') return
-    if (id === 'sevenIron') {
-      // Instant: reroll now.
-      try {
-        const next = reduce(sim, { type: 'reroll', club: id })
-        set({ sim: next, prevSim: sim, selected: [], aceDecls: {}, armedClub: null, error: null })
-      } catch (e) {
-        if (e instanceof SimError) set({ error: e.message })
-        else throw e
-      }
-      return
-    }
-    // Punch Iron arms discard mode; swing clubs arm the next swing.
-    set({ armedClub: id, selected: [], error: null })
-  },
-
-  toggleAce(id) {
-    const { aceDecls } = get()
-    set({ aceDecls: { ...aceDecls, [id]: (aceDecls[id] ?? 1) === 1 ? 14 : 1 } })
-  },
-
-  play() {
-    const { sim, selected, aceDecls, animating, done, armedClub } = get()
-    if (animating || done || selected.length === 0) return
-
-    if (armedClub === 'punchIron') {
-      try {
-        const next = reduce(sim, { type: 'punch', club: 'punchIron', discard: selected })
-        set({ sim: next, prevSim: sim, selected: [], armedClub: null, error: null })
-      } catch (e) {
-        if (e instanceof SimError) set({ error: e.message })
-        else throw e
-      }
-      return
-    }
-
-    const isPutt = sim.phase === 'putt' || sim.hole?.ball?.lie === 'fringe'
-    const action: SimAction = isPutt
-      ? {
-          type: 'putt',
-          cards: selected,
-          aceValues: Object.fromEntries(
-            selected.filter((id) => cardFromId(id).rank === 14).map((id) => [id, aceDecls[id] ?? 1]),
-          ),
-        }
-      : { type: 'swing', cards: selected, ...(armedClub ? { club: armedClub } : {}) }
+export const useGame = create<UIStore>((set, get) => {
+  /** Apply an action to the sim, log it, autosave. Returns the next state or null. */
+  function dispatch(action: SimAction): SimState | null {
+    const { sim, tier, actions } = get()
     try {
       const next = reduce(sim, action)
-      set({
-        prevSim: sim,
-        sim: next,
-        selected: [],
-        aceDecls: {},
-        armedClub: null,
-        animating: true,
-        animSeq: get().animSeq + 1,
-        animMs: strokeDurationMs(next),
-        error: null,
-      })
+      const log = [...actions, action]
+      if (next.phase === 'runComplete') {
+        clearRun()
+        if (next.runEnd === 'complete' && tier !== PRACTICE) {
+          const meta = loadMeta()
+          if (tier === meta.unlockedTier && tier < 8) {
+            saveMeta({ v: 1, unlockedTier: tier + 1 })
+            set({ unlockedTier: tier + 1 })
+          }
+        }
+      } else {
+        saveRun({ v: 1, seed: sim.seed, tier, actions: log })
+      }
+      set({ actions: log, hasSave: next.phase !== 'runComplete' })
+      return next
     } catch (e) {
-      if (e instanceof SimError) set({ error: e.message })
-      else throw e
+      if (e instanceof SimError) {
+        set({ error: e.message })
+        return null
+      }
+      throw e
     }
-  },
+  }
 
-  animationDone() {
-    const { sim, prevSim } = get()
-    const holeFinished = prevSim !== null && sim.scores.length > prevSim.scores.length
-    if (holeFinished) {
-      const idx = sim.scores.length - 1
-      const spec = prevSim.holes[idx]!
-      const roundOver = sim.phase === 'roundComplete'
+  return {
+    screen: 'title',
+    sim: initRound('title-bg', SUNNYVALE_FRONT_9),
+    tier: PRACTICE,
+    actions: [],
+    hasSave: loadRun() !== null,
+    unlockedTier: bootMeta.unlockedTier,
+    prevSim: null,
+    selected: [],
+    aceDecls: {},
+    armedClub: null,
+    animating: false,
+    animSeq: 0,
+    animMs: 400,
+    done: null,
+    error: null,
+
+    toggleCard(id) {
+      const { sim, selected, animating, done, armedClub } = get()
+      if (animating || done) return
+      if (selected.includes(id)) {
+        set({ selected: selected.filter((c) => c !== id), error: null })
+        return
+      }
+      const max =
+        armedClub === 'punchIron'
+          ? 2
+          : sim.phase === 'putt'
+            ? sim.config.puttMaxCards + (sim.config.putter === 'blade' ? 1 : 0)
+            : 5
+      if (selected.length >= max) return
+      set({ selected: [...selected, id], error: null })
+    },
+
+    toggleClub(id) {
+      const { armedClub, animating, done } = get()
+      if (animating || done) return
+      if (armedClub === id) {
+        set({ armedClub: null, error: null })
+        return
+      }
+      const spec = CLUBS[id]
+      if (spec.kind === 'passive') return
+      if (id === 'sevenIron') {
+        const prev = get().sim
+        const next = dispatch({ type: 'reroll', club: id })
+        if (next) {
+          set({ sim: next, prevSim: prev, selected: [], aceDecls: {}, armedClub: null, error: null })
+        }
+        return
+      }
+      set({ armedClub: id, selected: [], error: null })
+    },
+
+    toggleAce(id) {
+      const { aceDecls } = get()
+      set({ aceDecls: { ...aceDecls, [id]: (aceDecls[id] ?? 1) === 1 ? 14 : 1 } })
+    },
+
+    play() {
+      const { sim, selected, aceDecls, animating, done, armedClub } = get()
+      if (animating || done || selected.length === 0) return
+
+      if (armedClub === 'punchIron') {
+        const prev = sim
+        const next = dispatch({ type: 'punch', club: 'punchIron', discard: selected })
+        if (next) set({ sim: next, prevSim: prev, selected: [], armedClub: null, error: null })
+        return
+      }
+
+      const isPutt = sim.phase === 'putt' || sim.hole?.ball?.lie === 'fringe'
+      const action: SimAction = isPutt
+        ? {
+            type: 'putt',
+            cards: selected,
+            aceValues: Object.fromEntries(
+              selected
+                .filter((id) => cardFromId(id).rank === 14)
+                .map((id) => [id, aceDecls[id] ?? 1]),
+            ),
+          }
+        : { type: 'swing', cards: selected, ...(armedClub ? { club: armedClub } : {}) }
+      const prev = sim
+      const next = dispatch(action)
+      if (next) {
+        set({
+          prevSim: prev,
+          sim: next,
+          selected: [],
+          aceDecls: {},
+          armedClub: null,
+          animating: true,
+          animSeq: get().animSeq + 1,
+          animMs: strokeDurationMs(next),
+          error: null,
+        })
+      }
+    },
+
+    pickCaddie(pick) {
+      const prev = get().sim
+      const next = dispatch({ type: 'caddie', pick })
+      if (next) {
+        set({ sim: next, prevSim: prev, selected: [], armedClub: null, error: null })
+      }
+    },
+
+    animationDone() {
+      const { sim, prevSim, tier, unlockedTier } = get()
+      const holeFinished = prevSim !== null && sim.scores.length > prevSim.scores.length
+      const runOver = sim.phase === 'runComplete'
+      if (!holeFinished && !runOver) {
+        set({ animating: false })
+        return
+      }
+      const idx = Math.max(0, sim.scores.length - 1)
+      const spec = (prevSim ?? sim).holes[
+        holeFinished ? idx : (prevSim?.hole?.index ?? 0)
+      ]!
       const strokes = sim.scores.reduce((a, b) => a + b, 0)
       const parSoFar = sim.holes.slice(0, sim.scores.length).reduce((a, h) => a + h.par, 0)
       set({
         animating: false,
         done: {
-          score: sim.scores[idx]!,
+          score: holeFinished ? sim.scores[idx]! : 0,
           par: spec.par,
           name: spec.name,
-          roundOver,
-          totals: roundOver ? { strokes, toPar: strokes - parSoFar } : null,
+          runEnd: runOver ? sim.runEnd : null,
+          totals: runOver
+            ? {
+                strokes,
+                toPar: strokes - parSoFar,
+                unlocked:
+                  sim.runEnd === 'complete' && tier !== PRACTICE && unlockedTier === tier + 1
+                    ? unlockedTier
+                    : null,
+              }
+            : null,
         },
       })
-    } else {
-      set({ animating: false })
-    }
-  },
+    },
 
-  nextHole() {
-    set({ done: null, selected: [], aceDecls: {}, armedClub: null, prevSim: null })
-  },
+    nextHole() {
+      set({ done: null, selected: [], aceDecls: {}, armedClub: null, prevSim: null })
+    },
 
-  newRound() {
-    set({
-      sim: initRound(freshSeed(), SUNNYVALE_FRONT_9),
-      prevSim: null,
-      selected: [],
-      aceDecls: {},
-      armedClub: null,
-      animating: false,
-      animSeq: 0,
-      animMs: 400,
-      done: null,
-      error: null,
-    })
-  },
-}))
+    startRun(tier) {
+      const seed = freshSeed()
+      const sim = initRound(seed, courseFor(tier), configFor(tier))
+      if (tier === PRACTICE) clearRun()
+      else saveRun({ v: 1, seed, tier, actions: [] })
+      set({
+        screen: 'game',
+        sim,
+        tier,
+        actions: [],
+        hasSave: tier !== PRACTICE,
+        prevSim: null,
+        selected: [],
+        aceDecls: {},
+        armedClub: null,
+        animating: false,
+        animSeq: 0,
+        animMs: 400,
+        done: null,
+        error: null,
+      })
+    },
+
+    continueRun() {
+      const saved: SavedRun | null = loadRun()
+      if (!saved) return
+      try {
+        const sim = replay(saved.seed, courseFor(saved.tier), saved.actions, configFor(saved.tier))
+        if (sim.phase === 'runComplete') throw new Error('finished run')
+        set({
+          screen: 'game',
+          sim,
+          tier: saved.tier,
+          actions: saved.actions,
+          hasSave: true,
+          prevSim: null,
+          selected: [],
+          aceDecls: {},
+          armedClub: null,
+          animating: false,
+          animSeq: 0,
+          animMs: 400,
+          done: null,
+          error: null,
+        })
+      } catch {
+        clearRun()
+        set({ hasSave: false })
+      }
+    },
+
+    toTitle() {
+      set({ screen: 'title', done: null, hasSave: loadRun() !== null })
+    },
+  }
+})

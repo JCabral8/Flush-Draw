@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { cardLabel } from '../../sim/index'
 import { t } from '../i18n'
 import { useGame } from '../store'
 
@@ -62,6 +63,11 @@ export function StatusRow(): JSX.Element | null {
         {lie && <span className="chip">{lie}</span>}
         {slope && <span className="chip">{slope}</span>}
         <span className="chip chip-dim">{t('deck.count', { n: sim.deck.length })}</span>
+        {sim.caddies.includes('statistician') && sim.deck.length > 0 && (
+          <span className="chip">
+            {t('deck.next')} {cardLabel(sim.deck[sim.deck.length - 1]!)}
+          </span>
+        )}
       </div>
     </div>
   )

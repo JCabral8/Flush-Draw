@@ -67,5 +67,17 @@ GDD demands full text scaling with no hardcoded font sizes; the M2 layout uses p
 **D21 — M3 ships the club *system* with 6 clubs + Blade; the 24-club collection is M5 content.**
 The launch set (Driver, 3-Wood, 7-Iron, Pitching Wedge, Punch Iron, Sand Wedge, Blade) deliberately covers every hook type a club can need: distance mult, flat add, post-scatter shaping (halve), lie bending (bunker passive), resolution bending (PW's long-side green window), instant card actions (reroll / discard-draw), and putter variants. M5 clubs are data + small handlers on these hooks, not new architecture. Also resolved: the 7-Iron reroll is swing-phase only ("before swinging" per GDD), and PW's stuck long-side balls putt downhill (consistent with every other above-the-hole rule).
 
+**D23 — Caddie picks are actions in the replay log.**
+Ceremony offers roll from the dedicated caddie stream and the pick is a `{type:'caddie'}` action, so a saved run — including who you hired and when — rebuilds from `(seed, tier, actions[])` alone. Save files stay a few KB and the Daily/ghost format (M8) is already settled.
+
+**D24 — M4 ships 10 caddies covering every hook type; the 45-roster is M5 content.**
+Swing mult/flat (Wren, Tony), lie bending (Bobby), asymmetric wind (Wanda), no-wind + no-reshuffle rule break (Silent Sam), deck economy (Penny, Marguerite), green factor (Greenskeeper), club charges (Nephew), pure info (Statistician). Interpretations resolved: Marguerite only returns *played* lows — Punch Iron discards really leave; Silent Sam's deck-death ends the run even if the fatal draw follows a holed ball (the draw is part of the stroke, D16); the Greenskeeper makes fringe putts use the pin's own factor (front pins putt at 2.5 — slightly generous, and fine).
+
+**D25 — Run failure states are one phase with a reason.**
+`phase: 'runComplete'` + `runEnd: 'complete' | 'missedCut' | 'deckDead'`. One terminal phase keeps every guard simple; the reason drives UI copy and meta rewards later.
+
+**D26 — Tier progression: complete tier N to unlock N+1; stored locally.**
+localStorage meta `{unlockedTier}`; a completed run at your frontier tier unlocks the next. Practice mode (front 9, no cuts/caddies/wind tiers) is tier 0 and never touches the save slot.
+
 **D22 — Club UX: arm-then-swing; instants fire on tap.**
 Swing clubs (Driver/3W/PW) arm a chip and modify the previewed swing; the 7-Iron rerolls immediately on tap; the Punch Iron arms a discard mode where the main button becomes DISCARD 2. One armed club max; arming clears on any action. Charges shown as dots on the chip.

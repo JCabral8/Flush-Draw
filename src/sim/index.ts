@@ -5,11 +5,18 @@
  */
 export * from './rng'
 export * from './cards'
+export * from './caddies'
 export * from './clubs'
 export * from './hands'
+export * from './tiers'
 export * from './types'
 export * from './swing'
 export * from './holes'
 export * from './putting'
 export * from './engine'
-export { SUNNYVALE_FRONT_9 } from './data/sunnyvale'
+export {
+  SUNNYVALE_FRONT_9,
+  SUNNYVALE_BACK_9,
+  SUNNYVALE_CHAMPIONSHIP,
+  SUNNYVALE_RUN,
+} from './data/sunnyvale'

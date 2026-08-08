@@ -1,16 +1,26 @@
 import { CourseView } from './canvas/CourseView'
 import { ActionBar } from './components/ActionBar'
+import { CeremonyOverlay } from './components/CeremonyOverlay'
 import { ClubBar } from './components/ClubBar'
 import { DoneOverlay } from './components/DoneOverlay'
 import { EventLine } from './components/EventLine'
 import { Hand } from './components/Hand'
 import { Hud } from './components/Hud'
 import { StatusRow } from './components/StatusRow'
+import { TitleScreen } from './components/TitleScreen'
 import { t } from './i18n'
 import { useGame } from './store'
 
 export function App(): JSX.Element {
+  const screen = useGame((s) => s.screen)
   const sim = useGame((s) => s.sim)
+  if (screen === 'title') {
+    return (
+      <div className="shell">
+        <TitleScreen />
+      </div>
+    )
+  }
   const firstTee = sim.hole?.index === 0 && sim.hole.strokes === 0 && sim.scores.length === 0
 
   return (
@@ -27,6 +37,7 @@ export function App(): JSX.Element {
         <ActionBar />
       </div>
       <DoneOverlay />
+      <CeremonyOverlay />
     </div>
   )
 }

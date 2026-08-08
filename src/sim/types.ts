@@ -1,4 +1,5 @@
 import type { CardId, Suit } from './cards'
+import type { CaddieId } from './caddies'
 import { DEFAULT_BAG, type ClubId, type PutterId } from './clubs'
 import type { RngState } from './rng'
 
@@ -48,6 +49,14 @@ export interface RunConfig {
   bag: ClubId[]
   /** Putter variant in the free sixth slot. */
   putter: PutterId
+  /** Yards past the cup that are fringe rather than OOB (tier-tightened). */
+  fringeWindow: number
+  /** Cut lines: cumulative-to-par ceilings checked after these hole counts. */
+  cuts: { afterHole: number; maxToPar: number }[]
+  /** Caddie roster for this run; empty = no caddies (practice/tests). */
+  caddiePool: CaddieId[]
+  /** Caddies offered per ceremony. */
+  caddieOfferCount: number
 }
 
 export const DEFAULT_CONFIG: RunConfig = {
@@ -60,6 +69,10 @@ export const DEFAULT_CONFIG: RunConfig = {
   capOverPar: 4,
   bag: [...DEFAULT_BAG],
   putter: 'blade',
+  fringeWindow: 20,
+  cuts: [],
+  caddiePool: [],
+  caddieOfferCount: 3,
 }
 
 export interface Wind {
@@ -92,7 +105,9 @@ export interface HoleLive {
   green: GreenState | null
 }
 
-export type Phase = 'swing' | 'putt' | 'roundComplete'
+export type Phase = 'swing' | 'putt' | 'ceremony' | 'runComplete'
+
+export type RunEndReason = 'complete' | 'missedCut' | 'deckDead'
 
 export interface RngStreams {
   deck: RngState
@@ -123,6 +138,14 @@ export interface SimState {
   clubCharges: Partial<Record<ClubId, number>>
   /** Per-hole club uses (Driver); reset at each tee. */
   clubUsedThisHole: Partial<Record<ClubId, number>>
+  /** Caddies on the bag (max 4). */
+  caddies: CaddieId[]
+  /** Current ceremony offer (phase === 'ceremony'). */
+  offers: CaddieId[]
+  /** Why the run ended (phase === 'runComplete'). */
+  runEnd: RunEndReason | null
+  /** Reshuffles taken this round (Lucky Penny forgives the first). */
+  reshufflesThisRound: number
 }
 
 export type SimAction =
@@ -130,6 +153,7 @@ export type SimAction =
   | { type: 'putt'; cards: CardId[]; aceValues?: Record<CardId, 1 | 14> }
   | { type: 'reroll'; club: ClubId }
   | { type: 'punch'; club: ClubId; discard: CardId[] }
+  | { type: 'caddie'; pick: CaddieId | null }
 
 /**
  * What the last action physically did — part of state so the UI animates the

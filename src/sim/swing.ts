@@ -30,15 +30,21 @@ export const LIE_LABELS: Record<SwingLie, string> = {
   fringe: 'the fringe',
 }
 
-/** GDD §3.4: per-card proportional wind. */
-export function windMod(hand: HandEval, wind: Wind, strength: number): number {
+/** GDD §3.4: per-card proportional wind. Boost/drag strengths can differ
+ * (Weatherbeaten Wanda boosts the boost side only). */
+export function windMod(
+  hand: HandEval,
+  wind: Wind,
+  strength: number,
+  dragStrength: number = strength,
+): number {
   let boost = 0
   let drag = 0
   for (const c of hand.cards) {
     if (c.suit === wind.boost) boost++
     else if (c.suit === wind.drag) drag++
   }
-  return 1 + (strength * (boost - drag)) / hand.cards.length
+  return 1 + (strength * boost - dragStrength * drag) / hand.cards.length
 }
 
 /** Club effects that touch the distance math (GDD §7). */
@@ -76,10 +82,16 @@ export function struckBase(
   windStrength: number,
   rules: LieRules = LIE_RULES[lie],
   club?: ClubMods,
+  caddie?: { mult?: number; flat?: number; dragStrength?: number },
 ): number {
   const effBase = BASE_YARDS[hand.rank] + hand.pips
-  const raw = effBase * (club?.distMult ?? 1) * rules.mult * windMod(hand, wind, windStrength)
-  return Math.round(raw) + (club?.distFlat ?? 0)
+  const raw =
+    effBase *
+    (club?.distMult ?? 1) *
+    (caddie?.mult ?? 1) *
+    rules.mult *
+    windMod(hand, wind, windStrength, caddie?.dragStrength ?? windStrength)
+  return Math.round(raw) + (club?.distFlat ?? 0) + (caddie?.flat ?? 0)
 }
 
 /** Post-scatter shaping: clamp then Pitching Wedge halving (round down). */
@@ -107,8 +119,9 @@ export function previewSwing(
   windStrength: number,
   rules: LieRules = LIE_RULES[lie],
   club?: ClubMods,
+  caddie?: { mult?: number; flat?: number; dragStrength?: number },
 ): SwingPreview {
-  const base = struckBase(hand, lie, wind, windStrength, rules, club)
+  const base = struckBase(hand, lie, wind, windStrength, rules, club, caddie)
   const scatter = SCATTER[hand.rank]
   const skid = rules.skid ? 25 : 0
   return {

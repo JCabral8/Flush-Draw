@@ -76,7 +76,7 @@ let state = initRound(seed, SUNNYVALE_FRONT_9)
 if (!quiet) for (const line of state.lastEvents) console.log(line)
 
 let actions = 0
-while (state.phase !== 'roundComplete') {
+while (state.phase !== 'runComplete') {
   const action = randomAction(state, policyRng)
   state = reduce(state, action)
   actions++

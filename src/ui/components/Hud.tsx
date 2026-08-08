@@ -1,4 +1,4 @@
-import { toParString } from '../../sim/index'
+import { CADDIES, toParString } from '../../sim/index'
 import { t } from '../i18n'
 import { useGame } from '../store'
 
@@ -13,6 +13,7 @@ export function Hud(): JSX.Element | null {
   const donePar = sim.holes.slice(0, sim.scores.length).reduce((a, h) => a + h.par, 0)
   const toPar = doneStrokes - donePar
   const windPct = Math.round(sim.config.windStrength * 100)
+  const nextCut = sim.config.cuts.find((c) => c.afterHole > sim.scores.length)
 
   return (
     <header className="hud">
@@ -21,7 +22,15 @@ export function Hud(): JSX.Element | null {
         <span className="hud-name">{spec.name}</span>
         <span className="hud-par">
           {t('hud.par', { par: spec.par })} · {hole.effLength} yd · {t(`hud.pin.${hole.pin}`)}
+          {nextCut && (
+            <> · {t('hud.cut', { line: toParString(nextCut.maxToPar), n: nextCut.afterHole })}</>
+          )}
         </span>
+        {sim.caddies.length > 0 && (
+          <span className="hud-caddies">
+            {sim.caddies.map((id) => CADDIES[id].name).join(' · ')}
+          </span>
+        )}
       </div>
       <div className="hud-right">
         <div className="hud-wind" aria-label={`${t(`suit.${hole.wind.boost}`)} ${t('wind.boost', { pct: windPct })}, ${t(`suit.${hole.wind.drag}`)} ${t('wind.drag', { pct: windPct })}`}>
