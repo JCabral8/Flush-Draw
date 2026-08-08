@@ -63,6 +63,11 @@ export function StatusRow(): JSX.Element | null {
         {lie && <span className="chip">{lie}</span>}
         {slope && <span className="chip">{slope}</span>}
         <span className="chip chip-dim">{t('deck.count', { n: sim.deck.length })}</span>
+        {sim.peeked.length > 0 && (
+          <span className="chip">
+            {t('deck.peek')} {[...sim.peeked].reverse().map(cardLabel).join(' ')}
+          </span>
+        )}
         {sim.caddies.includes('statistician') && sim.deck.length > 0 && (
           <span className="chip">
             {t('deck.next')} {cardLabel(sim.deck[sim.deck.length - 1]!)}

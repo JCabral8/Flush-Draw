@@ -23,7 +23,9 @@ page.on('console', (msg) => {
 page.on('pageerror', (err) => errors.push(String(err)))
 
 await page.goto(url)
-await page.waitForTimeout(1200)
+await page.waitForTimeout(900)
+await page.evaluate(() => window.__pg!.getState().startRun(0))
+await page.waitForTimeout(500)
 await page.screenshot({ path: join(outDir, 'shot-1-tee.png') })
 
 // Select two cards and look at the preview.

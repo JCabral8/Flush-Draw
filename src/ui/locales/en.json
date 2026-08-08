@@ -97,5 +97,15 @@
   "run.clubhouse": "CLUBHOUSE",
   "run.unlocked": "Tour Card {n} unlocked",
   "hud.cut": "cut {line} after {n}",
-  "deck.next": "next"
+  "deck.next": "next",
+  "shop.title": "The Pro Shop",
+  "shop.sub": "pick five, and a putter",
+  "shop.count": "{n} / 5 clubs",
+  "shop.clubs": "Clubs",
+  "shop.putter": "Putter",
+  "shop.start": "TO THE FIRST TEE",
+  "shop.back": "back",
+  "wild.title": "declare the wildcard",
+  "action.retake": "RETAKE",
+  "deck.peek": "peeked"
 }

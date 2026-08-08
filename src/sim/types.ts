@@ -146,13 +146,35 @@ export interface SimState {
   runEnd: RunEndReason | null
   /** Reshuffles taken this round (Lucky Penny forgives the first). */
   reshufflesThisRound: number
+  /** Persimmon: pre-stroke snapshot; a 'retake' action restores it. */
+  mulligan: MulliganSnapshot | null
+  /** Mashie: deck cards revealed by the last peek (top of deck last). */
+  peeked: CardId[]
+}
+
+export interface MulliganSnapshot {
+  deck: CardId[]
+  discard: CardId[]
+  hand: CardId[]
+  hole: HoleLive
+  phase: Phase
+  reshufflesThisRound: number
+}
+
+export interface WildDecl {
+  /** The selected card being declared. */
+  id: CardId
+  rank: number
+  suit: Suit
 }
 
 export type SimAction =
-  | { type: 'swing'; cards: CardId[]; club?: ClubId }
-  | { type: 'putt'; cards: CardId[]; aceValues?: Record<CardId, 1 | 14> }
+  | { type: 'swing'; cards: CardId[]; club?: ClubId; wild?: WildDecl }
+  | { type: 'putt'; cards: CardId[]; aceValues?: Record<CardId, 1 | 14>; club?: ClubId }
   | { type: 'reroll'; club: ClubId }
   | { type: 'punch'; club: ClubId; discard: CardId[] }
+  | { type: 'peek'; club: ClubId }
+  | { type: 'retake' }
   | { type: 'caddie'; pick: CaddieId | null }
 
 /**

@@ -1,4 +1,4 @@
-import { type HandEval, SCATTER, BASE_YARDS, isFlushFamily, HAND_LABELS } from './hands'
+import { type HandEval, type HandRank, SCATTER, BASE_YARDS, isFlushFamily, HAND_LABELS } from './hands'
 import type { SwingLie, Wind } from './types'
 import { SimError } from './types'
 
@@ -52,6 +52,10 @@ export interface ClubMods {
   distMult?: number
   distFlat?: number
   halve?: boolean
+  scatterMult?: number
+  minDistance?: number
+  /** Score the hand as this rank (Long Iron, Chipper). */
+  rankOverride?: HandRank
 }
 
 /** Returns an error message if this hand may not be swung from this lie. */
@@ -84,7 +88,7 @@ export function struckBase(
   club?: ClubMods,
   caddie?: { mult?: number; flat?: number; dragStrength?: number },
 ): number {
-  const effBase = BASE_YARDS[hand.rank] + hand.pips
+  const effBase = BASE_YARDS[club?.rankOverride ?? hand.rank] + hand.pips
   const raw =
     effBase *
     (club?.distMult ?? 1) *
@@ -94,10 +98,17 @@ export function struckBase(
   return Math.round(raw) + (club?.distFlat ?? 0) + (caddie?.flat ?? 0)
 }
 
+/** Effective scatter for a hand under a club (Big Bertha 2×, 9-Iron 0×). */
+export function scatterFor(hand: HandEval, club?: ClubMods): number {
+  const base = SCATTER[club?.rankOverride ?? hand.rank]
+  return Math.round(base * (club?.scatterMult ?? 1))
+}
+
 /** Post-scatter shaping: clamp then Pitching Wedge halving (round down). */
 export function finishStruck(struck: number, club?: ClubMods): number {
-  const clamped = Math.max(1, struck)
-  return club?.halve ? Math.max(1, Math.floor(clamped / 2)) : clamped
+  const floor = Math.max(1, club?.minDistance ?? 1)
+  const clamped = Math.max(floor, struck)
+  return club?.halve ? Math.max(floor, Math.floor(clamped / 2)) : clamped
 }
 
 export interface SwingPreview {
@@ -122,11 +133,12 @@ export function previewSwing(
   caddie?: { mult?: number; flat?: number; dragStrength?: number },
 ): SwingPreview {
   const base = struckBase(hand, lie, wind, windStrength, rules, club, caddie)
-  const scatter = SCATTER[hand.rank]
+  const scatter = scatterFor(hand, club)
   const skid = rules.skid ? 25 : 0
+  const scoredRank = club?.rankOverride ?? hand.rank
   return {
-    rank: hand.rank,
-    effBase: BASE_YARDS[hand.rank] + hand.pips,
+    rank: scoredRank,
+    effBase: BASE_YARDS[scoredRank] + hand.pips,
     min: finishStruck(base - scatter - skid, club),
     max: finishStruck(base + scatter + skid, club),
     scatter,

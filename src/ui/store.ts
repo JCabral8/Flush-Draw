@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import {
   CLUBS,
+  DEFAULT_BAG,
   DEFAULT_CONFIG,
   initRound,
   reduce,
@@ -13,9 +14,12 @@ import {
   type CaddieId,
   type CardId,
   type ClubId,
+  type PutterId,
+  type RunConfig,
   type RunEndReason,
   type SimAction,
   type SimState,
+  type Suit,
 } from '../sim/index'
 import { clearRun, loadMeta, loadRun, saveMeta, saveRun, type SavedRun } from './storage'
 
@@ -36,16 +40,47 @@ export interface HoleDone {
 /** Practice mode sentinel tier. */
 export const PRACTICE = 0
 
+const BAG_KEY = 'pokergolf.bag.v1'
+
+export interface BagPrefs {
+  bag: ClubId[]
+  putter: PutterId
+}
+
+export function loadBagPrefs(): BagPrefs {
+  try {
+    const raw = localStorage.getItem(BAG_KEY)
+    if (raw) {
+      const p = JSON.parse(raw) as BagPrefs
+      if (Array.isArray(p.bag) && p.bag.length === 5 && p.bag.every((id) => id in CLUBS)) return p
+    }
+  } catch {
+    /* default */
+  }
+  return { bag: [...DEFAULT_BAG], putter: 'blade' }
+}
+
+export function saveBagPrefs(prefs: BagPrefs): void {
+  try {
+    localStorage.setItem(BAG_KEY, JSON.stringify(prefs))
+  } catch {
+    /* best effort */
+  }
+}
+
 function courseFor(tier: number): typeof SUNNYVALE_RUN {
   return tier === PRACTICE ? SUNNYVALE_FRONT_9 : SUNNYVALE_RUN
 }
 
-function configFor(tier: number): ReturnType<typeof tierConfig> {
-  return tier === PRACTICE ? { ...DEFAULT_CONFIG } : tierConfig(tier)
+function configFor(tier: number): RunConfig {
+  const base = tier === PRACTICE ? { ...DEFAULT_CONFIG } : tierConfig(tier)
+  const prefs = loadBagPrefs()
+  return { ...base, bag: [...prefs.bag], putter: prefs.putter }
 }
 
 interface UIStore {
-  screen: 'title' | 'game'
+  screen: 'title' | 'shop' | 'game'
+  pendingTier: number
   sim: SimState
   tier: number
   actions: SimAction[]
@@ -55,8 +90,10 @@ interface UIStore {
   prevSim: SimState | null
   selected: CardId[]
   aceDecls: Record<CardId, 1 | 14>
-  /** Armed club for the next swing (or 'punchIron' = discard mode). */
+  /** Armed club for the next swing (or discard/ground mode). */
   armedClub: ClubId | null
+  /** Hybrid wildcard declaration, applied to the first selected card. */
+  wildDecl: { rank: number; suit: Suit } | null
   animating: boolean
   /** Bumps once per accepted action; the canvas reacts to it. */
   animSeq: number
@@ -68,10 +105,13 @@ interface UIStore {
   toggleCard(id: CardId): void
   toggleAce(id: CardId): void
   toggleClub(id: ClubId): void
+  setWild(rank: number, suit: Suit): void
   play(): void
+  retake(): void
   pickCaddie(pick: CaddieId | null): void
   animationDone(): void
   nextHole(): void
+  openShop(tier: number): void
   startRun(tier: number): void
   continueRun(): void
   toTitle(): void
@@ -120,6 +160,7 @@ export const useGame = create<UIStore>((set, get) => {
 
   return {
     screen: 'title',
+    pendingTier: 1,
     sim: initRound('title-bg', SUNNYVALE_FRONT_9),
     tier: PRACTICE,
     actions: [],
@@ -129,6 +170,7 @@ export const useGame = create<UIStore>((set, get) => {
     selected: [],
     aceDecls: {},
     armedClub: null,
+    wildDecl: null,
     animating: false,
     animSeq: 0,
     animMs: 400,
@@ -142,12 +184,15 @@ export const useGame = create<UIStore>((set, get) => {
         set({ selected: selected.filter((c) => c !== id), error: null })
         return
       }
+      const armedSpec = armedClub ? CLUBS[armedClub] : undefined
       const max =
-        armedClub === 'punchIron'
+        armedClub === 'punchIron' || armedSpec?.texasWedge
           ? 2
-          : sim.phase === 'putt'
-            ? sim.config.puttMaxCards + (sim.config.putter === 'blade' ? 1 : 0)
-            : 5
+          : armedSpec?.fixedDistance !== undefined
+            ? 1
+            : sim.phase === 'putt'
+              ? sim.config.puttMaxCards + (sim.config.putter === 'blade' ? 1 : 0)
+              : 5
       if (selected.length >= max) return
       set({ selected: [...selected, id], error: null })
     },
@@ -169,12 +214,29 @@ export const useGame = create<UIStore>((set, get) => {
         }
         return
       }
-      set({ armedClub: id, selected: [], error: null })
+      if (spec.peek) {
+        const prev = get().sim
+        const next = dispatch({ type: 'peek', club: id })
+        if (next) set({ sim: next, prevSim: prev, armedClub: null, error: null })
+        return
+      }
+      set({ armedClub: id, selected: [], wildDecl: null, error: null })
     },
 
     toggleAce(id) {
       const { aceDecls } = get()
       set({ aceDecls: { ...aceDecls, [id]: (aceDecls[id] ?? 1) === 1 ? 14 : 1 } })
+    },
+
+    setWild(rank, suit) {
+      set({ wildDecl: { rank, suit }, error: null })
+    },
+
+    retake() {
+      const { sim, animating } = get()
+      if (animating || !sim.mulligan) return
+      const next = dispatch({ type: 'retake' })
+      if (next) set({ sim: next, prevSim: sim, selected: [], armedClub: null, error: null })
     },
 
     play() {
@@ -188,7 +250,14 @@ export const useGame = create<UIStore>((set, get) => {
         return
       }
 
-      const isPutt = sim.phase === 'putt' || sim.hole?.ball?.lie === 'fringe'
+      const armedSpec = armedClub ? CLUBS[armedClub] : undefined
+      const isPutt =
+        sim.phase === 'putt' || sim.hole?.ball?.lie === 'fringe' || armedSpec?.texasWedge === true
+      const { wildDecl } = get()
+      const wild =
+        armedSpec?.wildcard && wildDecl && selected[0]
+          ? { id: selected[0], rank: wildDecl.rank, suit: wildDecl.suit }
+          : undefined
       const action: SimAction = isPutt
         ? {
             type: 'putt',
@@ -198,8 +267,14 @@ export const useGame = create<UIStore>((set, get) => {
                 .filter((id) => cardFromId(id).rank === 14)
                 .map((id) => [id, aceDecls[id] ?? 1]),
             ),
+            ...(armedSpec?.texasWedge ? { club: armedClub! } : {}),
           }
-        : { type: 'swing', cards: selected, ...(armedClub ? { club: armedClub } : {}) }
+        : {
+            type: 'swing',
+            cards: selected,
+            ...(armedClub ? { club: armedClub } : {}),
+            ...(wild ? { wild } : {}),
+          }
       const prev = sim
       const next = dispatch(action)
       if (next) {
@@ -209,6 +284,7 @@ export const useGame = create<UIStore>((set, get) => {
           selected: [],
           aceDecls: {},
           armedClub: null,
+          wildDecl: null,
           animating: true,
           animSeq: get().animSeq + 1,
           animMs: strokeDurationMs(next),
@@ -262,6 +338,10 @@ export const useGame = create<UIStore>((set, get) => {
 
     nextHole() {
       set({ done: null, selected: [], aceDecls: {}, armedClub: null, prevSim: null })
+    },
+
+    openShop(tier) {
+      set({ screen: 'shop', pendingTier: tier })
     },
 
     startRun(tier) {

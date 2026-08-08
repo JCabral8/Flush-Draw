@@ -6,7 +6,7 @@ import { useGame } from '../store'
 export function TitleScreen(): JSX.Element {
   const hasSave = useGame((s) => s.hasSave)
   const unlockedTier = useGame((s) => s.unlockedTier)
-  const startRun = useGame((s) => s.startRun)
+  const openShop = useGame((s) => s.openShop)
   const continueRun = useGame((s) => s.continueRun)
   const [tier, setTier] = useState(Math.min(unlockedTier, 8))
 
@@ -42,10 +42,10 @@ export function TitleScreen(): JSX.Element {
             {t('title.continue')}
           </button>
         )}
-        <button type="button" className="go" onClick={() => startRun(tier)}>
+        <button type="button" className="go" onClick={() => openShop(tier)}>
           {t('title.newRun')}
         </button>
-        <button type="button" className="go go-quiet" onClick={() => startRun(0)}>
+        <button type="button" className="go go-quiet" onClick={() => openShop(0)}>
           {t('title.practice')}
         </button>
       </div>

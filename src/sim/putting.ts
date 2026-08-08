@@ -1,4 +1,5 @@
 import { type CardId, cardFromId } from './cards'
+import type { PutterSpec } from './clubs'
 import type { GreenState, Pin, SimAction } from './types'
 import { SimError } from './types'
 
@@ -6,8 +7,8 @@ import { SimError } from './types'
  * GDD §4: putting is pure arithmetic. No wind, no scatter, no lie mults.
  * distance rolled = Σ(rank value) × F, F from slope (§4.3 / D6).
  */
-export function greenFactor(green: GreenState, pin: Pin): number {
-  if (green.downhill) return 4
+export function greenFactor(green: GreenState, pin: Pin, putter?: PutterSpec): number {
+  if (green.downhill) return putter?.downhillCap ? 3 : 4
   if (pin === 'front') return 2.5
   return 3
 }
@@ -27,6 +28,7 @@ export function planPutt(
   green: GreenState,
   pin: Pin,
   maxCards: number,
+  putter?: PutterSpec,
 ): PuttPlan {
   if (cards.length === 0) throw new SimError('play at least 1 card to putt')
   if (cards.length > maxCards) throw new SimError(`at most ${maxCards} cards on a putt`)
@@ -45,8 +47,10 @@ export function planPutt(
   })
 
   const sum = values.reduce((a, b) => a + b, 0)
-  const factor = greenFactor(green, pin)
-  return { values, sum, factor, rolled: Math.round(sum * factor) }
+  const factor = greenFactor(green, pin, putter)
+  let rolled = Math.round(sum * factor)
+  if (putter?.roundTo5) rolled = Math.max(5, Math.round(rolled / 5) * 5)
+  return { values, sum, factor, rolled }
 }
 
 export interface PuttOutcome {
@@ -88,7 +92,8 @@ export function previewPutt(
   pin: Pin,
   maxCards: number,
   gimmeFt: number,
+  putter?: PutterSpec,
 ): PuttOutcome {
-  const plan = planPutt(action.cards, action.aceValues, green, pin, maxCards)
-  return resolvePutt(plan, green, gimmeFt)
+  const plan = planPutt(action.cards, action.aceValues, green, pin, maxCards, putter)
+  return resolvePutt(plan, green, putter?.gimmeFt ?? gimmeFt)
 }

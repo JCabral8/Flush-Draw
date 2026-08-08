@@ -1,4 +1,6 @@
 import { CourseView } from './canvas/CourseView'
+import { ProShop } from './components/ProShop'
+import { WildBar } from './components/WildBar'
 import { ActionBar } from './components/ActionBar'
 import { CeremonyOverlay } from './components/CeremonyOverlay'
 import { ClubBar } from './components/ClubBar'
@@ -21,6 +23,13 @@ export function App(): JSX.Element {
       </div>
     )
   }
+  if (screen === 'shop') {
+    return (
+      <div className="shell">
+        <ProShop />
+      </div>
+    )
+  }
   const firstTee = sim.hole?.index === 0 && sim.hole.strokes === 0 && sim.scores.length === 0
 
   return (
@@ -33,6 +42,7 @@ export function App(): JSX.Element {
       <div className="bottom">
         <StatusRow />
         <ClubBar />
+        <WildBar />
         <Hand />
         <ActionBar />
       </div>

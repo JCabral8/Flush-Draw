@@ -1,6 +1,7 @@
 import {
   cardFromId,
-  evaluateHand,
+  CLUBS,
+  PUTTERS,
   previewPutt,
   previewSwingAction,
   putterMaxCards,
@@ -17,7 +18,7 @@ interface Preview {
 }
 
 function computePreview(): Preview {
-  const { sim, selected, aceDecls, armedClub } = useGame.getState()
+  const { sim, selected, aceDecls, armedClub, wildDecl } = useGame.getState()
   if (armedClub === 'punchIron') {
     return {
       label: t('club.punchIron.name'),
@@ -50,6 +51,7 @@ function computePreview(): Preview {
         sim.hole!.pin,
         putterMaxCards(sim.config.putter, sim.config.puttMaxCards),
         sim.config.gimmeFt,
+        PUTTERS[sim.config.putter],
       )
       return {
         label: t('action.putt'),
@@ -58,8 +60,13 @@ function computePreview(): Preview {
         legal: true,
       }
     }
-    const p = previewSwingAction(sim, selected, armedClub ?? undefined)
-    const hand = evaluateHand(selected)
+    const armedSpec = armedClub ? CLUBS[armedClub] : undefined
+    const wild =
+      armedSpec?.wildcard && wildDecl && selected[0]
+        ? { id: selected[0], rank: wildDecl.rank, suit: wildDecl.suit }
+        : undefined
+    const p = previewSwingAction(sim, selected, armedClub ?? undefined, wild)
+    const hand = { rank: p.rank, junk: p.junk }
     return {
       label: t(`hand.${hand.rank}`),
       detail:
@@ -83,6 +90,7 @@ export function ActionBar(): JSX.Element {
   const animating = useGame((s) => s.animating)
   const error = useGame((s) => s.error)
   const play = useGame((s) => s.play)
+  const retake = useGame((s) => s.retake)
   void sim
   void selected
   const armedClub = useGame((s) => s.armedClub)
@@ -102,6 +110,11 @@ export function ActionBar(): JSX.Element {
         {preview.detail && <span className="preview-dist num">{preview.detail}</span>}
         {(preview.warn ?? error) && <span className="preview-warn">{preview.warn ?? error}</span>}
       </div>
+      {sim.mulligan && !animating && (
+        <button type="button" className="go go-quiet retake" onClick={retake}>
+          {t('action.retake')}
+        </button>
+      )}
       <button
         type="button"
         className="go"

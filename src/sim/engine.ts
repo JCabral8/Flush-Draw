@@ -1,7 +1,7 @@
 import { CADDIES, RARITY_WEIGHT, type CaddieId } from './caddies'
-import { type CardId, cardFromId, cardLabel, makeDeck, shuffle, SUITS, SUIT_NAMES } from './cards'
-import { CLUBS, putterMaxCards, type ClubId, type ClubSpec } from './clubs'
-import { evaluateHand, HAND_LABELS, SCATTER, type HandEval } from './hands'
+import { type CardId, cardFromId, cardLabel, makeDeck, rankChar, shuffle, SUITS, SUIT_NAMES } from './cards'
+import { CLUBS, PUTTERS, putterMaxCards, type ClubId, type ClubSpec } from './clubs'
+import { evaluateHand, HAND_LABELS, type HandEval, type HandRank } from './hands'
 import {
   APPROACH_GIMME_YDS,
   GREEN_WINDOW,
@@ -18,7 +18,9 @@ import {
   LIE_LABELS,
   LIE_RULES,
   previewSwing,
+  scatterFor,
   struckBase,
+  type ClubMods,
   type LieRules,
   type SwingPreview,
 } from './swing'
@@ -27,12 +29,14 @@ import {
   SimError,
   type HoleLive,
   type HoleSpec,
+  type MulliganSnapshot,
   type Pin,
   type RunConfig,
   type SimAction,
   type SimState,
   type SwingLie,
   type SwingResult,
+  type WildDecl,
 } from './types'
 
 /** Start a 9-hole round. Same (seed, holes, config) → identical round, always. */
@@ -71,6 +75,8 @@ export function initRound(
     offers: [],
     runEnd: null,
     reshufflesThisRound: 0,
+    mulligan: null,
+    peeked: [],
   }
   for (const id of state.config.bag) {
     const spec = CLUBS[id]
@@ -78,6 +84,9 @@ export function initRound(
     if (Number.isFinite(spec.charges)) state.clubCharges[id] = spec.charges
   }
   if (state.config.bag.length > 5) throw new SimError('the bag holds at most 5 clubs')
+  if (new Set(state.config.bag).size !== state.config.bag.length) {
+    throw new SimError('no duplicate clubs in the bag')
+  }
   state.deck = shuffle(makeDeck(), state.rng.deck)
   drawTo(state, [])
   if (state.config.caddiePool.length > 0) {
@@ -304,6 +313,37 @@ function effectiveRules(state: SimState, lie: SwingLie): LieRules {
   return LIE_RULES[lie]
 }
 
+/** Rank promotion clubs (Long Iron, Chipper). */
+function scoredRankFor(hand: HandEval, club?: ClubSpec): HandRank | undefined {
+  if (club?.straightTierUp && hand.rank === 'straight') return 'flush'
+  if (club?.straightTierUp && hand.rank === 'straightFlush') return 'royalFlush'
+  if (club?.highCardAsPair && hand.rank === 'highCard') return 'pair'
+  return undefined
+}
+
+function clubModsFor(hand: HandEval, club?: ClubSpec): ClubMods | undefined {
+  if (!club) return undefined
+  const rankOverride = scoredRankFor(hand, club)
+  return { ...club, ...(rankOverride ? { rankOverride } : {}) }
+}
+
+/** Substitute the Hybrid's declared wildcard into a selection. */
+function applyWild(cards: readonly CardId[], wild: WildDecl | undefined, club?: ClubSpec): CardId[] {
+  if (!wild) return cards.slice()
+  if (!club?.wildcard) throw new SimError('only the Hybrid declares wildcards')
+  if (!cards.includes(wild.id)) throw new SimError('the wildcard must be a selected card')
+  if (!Number.isInteger(wild.rank) || wild.rank < 2 || wild.rank > 14) {
+    throw new SimError('declare a rank from 2 to 14')
+  }
+  if (!SUITS.includes(wild.suit)) throw new SimError('declare a real suit')
+  const virtual = `${rankChar(wild.rank)}${wild.suit}`
+  const out = cards.map((id) => (id === wild.id ? virtual : id))
+  if (new Set(out).size !== out.length) {
+    throw new SimError('the wildcard may not duplicate a selected card')
+  }
+  return out
+}
+
 /** Caddie swing shaping: Wren's red hands, Tony's pairs, Wanda/Sam's winds. */
 function caddieSwing(
   state: SimState,
@@ -332,6 +372,7 @@ function reduceSwing(
   state: SimState,
   cards: readonly CardId[],
   club: ClubId | undefined,
+  wild: WildDecl | undefined,
   events: string[],
 ): void {
   requirePlay(state)
@@ -350,40 +391,75 @@ function reduceSwing(
 
   validateSelection(state, cards)
   if (cards.length > 5) throw new SimError('at most 5 cards per stroke')
-  const hand = evaluateHand(cards)
-  const rules = effectiveRules(state, ball.lie)
+  if (clubSpec?.fixedDistance !== undefined && cards.length !== 1) {
+    throw new SimError(`${clubSpec.name} plays exactly 1 card`)
+  }
+  const scoringIds = applyWild(cards, wild, clubSpec)
+  const hand = evaluateHand(scoringIds)
+  let rules = effectiveRules(state, ball.lie)
+  if (clubSpec?.lieNeutral) rules = { ...rules, mult: 1.0 }
+  if (clubSpec?.cardCapBonus && (ball.lie === 'rough' || ball.lie === 'deepRough')) {
+    rules = { ...rules, maxCards: rules.maxCards + clubSpec.cardCapBonus }
+  }
   assertSwingLegal(ball.lie, hand, rules)
 
   // Distance: deterministic part, then scatter, then cart-path skid,
-  // then club shaping (Pitching Wedge halves last).
+  // then club shaping (Pitching Wedge halves last, floors respected).
+  const mods = clubModsFor(hand, clubSpec)
   const caddie = caddieSwing(state, hand)
-  let struck = struckBase(hand, ball.lie, hole.wind, caddie.windStrength, rules, clubSpec, caddie.mods)
-  const spread = SCATTER[hand.rank]
-  let scatterRoll = 0
-  if (spread > 0) {
-    scatterRoll = nextIntIn(state.rng.scatter, -spread, spread)
-    struck += scatterRoll
+  if (clubSpec?.windImmune) {
+    caddie.windStrength = 0
+    caddie.mods.dragStrength = 0
   }
-  let skid = 0
-  if (rules.skid && chance(state.rng.cart, 0.5)) {
-    skid = chance(state.rng.cart, 0.5) ? 25 : -25
-    struck += skid
+  let struck: number
+  if (clubSpec?.fixedDistance !== undefined) {
+    struck = clubSpec.fixedDistance
+  } else {
+    struck = struckBase(hand, ball.lie, hole.wind, caddie.windStrength, rules, mods, caddie.mods)
+    const spread = scatterFor(hand, mods)
+    if (spread > 0) {
+      struck += nextIntIn(state.rng.scatter, -spread, spread)
+    }
+    let skid = 0
+    if (rules.skid && chance(state.rng.cart, 0.5)) {
+      skid = chance(state.rng.cart, 0.5) ? 25 : -25
+      struck += skid
+    }
+    struck = finishStruck(struck, mods)
+    if (clubSpec?.capAtGreenFront) {
+      const cap = ball.side === 'short' ? Math.max(1, ball.remaining - GREEN_WINDOW) : ball.remaining
+      struck = Math.min(struck, cap)
+    }
   }
-  struck = finishStruck(struck, clubSpec)
 
   if (clubSpec) spendClub(state, clubSpec.id)
+  if (clubSpec?.mulligan) {
+    // Snapshot after the charge is spent, before the stroke lands (D33).
+    state.mulligan = {
+      deck: state.deck.slice(),
+      discard: state.discard.slice(),
+      hand: state.hand.slice(),
+      hole: structuredClone(hole) as HoleLive,
+      phase: state.phase,
+      reshufflesThisRound: state.reshufflesThisRound,
+    }
+  }
   hole.strokes++
-  const label = `${HAND_LABELS[hand.rank]}${hand.junk ? ' (junk)' : ''}`
+  const scored = mods?.rankOverride ?? hand.rank
+  const label = `${HAND_LABELS[scored]}${hand.junk ? ' (junk)' : ''}`
   events.push(
-    `Swung ${label} [${cards.map(cardLabel).join(' ')}]${clubSpec ? ` with the ${clubSpec.name}` : ''} from ${LIE_LABELS[ball.lie]}: ${struck} yds` +
-      `${skid !== 0 ? ` (cart path skid ${skid > 0 ? '+' : ''}${skid})` : ''}.`,
+    `Swung ${label} [${cards.map(cardLabel).join(' ')}]${clubSpec ? ` with the ${clubSpec.name}` : ''}${wild ? ` (wild as ${rankChar(wild.rank)}${wild.suit})` : ''} from ${LIE_LABELS[ball.lie]}: ${struck} yds.`,
   )
 
   // Travel is always toward the cup; 'long' side only ever means the fringe.
   const fromPos = ball.side === 'short' ? hole.effLength - ball.remaining : hole.effLength + ball.remaining
   const net = ball.side === 'short' ? ball.remaining - struck : struck - ball.remaining
-  const side = net >= 0 ? 'short' : 'long'
+  let side = net >= 0 ? 'short' : 'long'
   const rem = Math.abs(net)
+  if (side === 'long' && clubSpec?.symmetricLong) {
+    side = 'short' // Niblick: for one swing, long is forgiven
+    events.push('The Niblick takes the sting out of the long side.')
+  }
   const landedPos = side === 'short' ? hole.effLength - rem : hole.effLength + rem
   const stroke = (outcome: SwingResult['outcome'], finalPos: number): void => {
     state.lastStroke = { kind: 'swing', struck, fromPos, landedPos, finalPos, outcome }
@@ -394,6 +470,7 @@ function reduceSwing(
     stroke('holed', hole.effLength)
     hole.ball = null
     discardPlayed(state, cards)
+    returnBest(state, cards, clubSpec, events)
     drawTo(state, events)
     if (state.runEnd !== null) return // deck died on the draw (Silent Sam)
     finishHole(state, events)
@@ -447,18 +524,58 @@ function reduceSwing(
   }
 
   discardPlayed(state, cards)
+  returnBest(state, cards, clubSpec, events)
   drawTo(state, events)
   checkPickup(state, events)
+}
+
+/** 8-Iron: the highest played card comes back for another dance. */
+function returnBest(
+  state: SimState,
+  played: readonly CardId[],
+  club: ClubSpec | undefined,
+  events: string[],
+): void {
+  if (!club?.returnPlayed) return
+  let best: CardId | null = null
+  for (const id of played) {
+    if (state.discard.includes(id) && (best === null || cardFromId(id).rank > cardFromId(best).rank)) {
+      best = id
+    }
+  }
+  if (best) {
+    state.discard = state.discard.filter((id) => id !== best)
+    state.hand.push(best)
+    events.push(`${club.name}: ${cardLabel(best)} returns to hand.`)
+  }
 }
 
 function reducePutt(
   state: SimState,
   cards: readonly CardId[],
   aceValues: Record<CardId, 1 | 14> | undefined,
+  club: ClubId | undefined,
   events: string[],
 ): void {
   requirePlay(state)
   const hole = state.hole!
+  const putter = PUTTERS[state.config.putter]
+
+  let texas: ClubSpec | undefined
+  if (club) {
+    texas = requireClub(state, club, 'instant')
+    if (!texas.texasWedge) throw new SimError(`${texas.name} is not a putter`)
+    const ball = hole.ball
+    if (state.phase !== 'swing' || !ball) throw new SimError('you are already putting')
+    if (ball.side !== 'short' || ball.remaining > 40 || (ball.lie !== 'fairway' && ball.lie !== 'rough')) {
+      throw new SimError(`${texas.name} works from fairway or rough within 40 yds`)
+    }
+    spendClub(state, club)
+    hole.green = { distFt: ball.remaining * 3, downhill: true }
+    hole.ball = null
+    state.phase = 'putt'
+    events.push(`${texas.name}: running it along the ground.`)
+  }
 
   // Fringe balls may putt (downhill, D7 — unless the Greenskeeper mows it flat).
   if (state.phase === 'swing') {
@@ -471,10 +588,10 @@ function reducePutt(
   const green = hole.green!
 
   validateSelection(state, cards)
-  const maxPuttCards = putterMaxCards(state.config.putter, state.config.puttMaxCards)
-  const plan = planPutt(cards, aceValues, green, hole.pin, maxPuttCards)
+  const maxPuttCards = texas ? 2 : putterMaxCards(state.config.putter, state.config.puttMaxCards)
+  const plan = planPutt(cards, aceValues, green, hole.pin, maxPuttCards, putter)
   hole.strokes++
-  const outcome = resolvePutt(plan, green, state.config.gimmeFt)
+  const outcome = resolvePutt(plan, green, putter.gimmeFt ?? state.config.gimmeFt)
   state.lastStroke = {
     kind: 'putt',
     fromFt: green.distFt,
@@ -555,6 +672,34 @@ function reducePunch(
   checkPickup(state, events)
 }
 
+/** Mashie: peek the top of the deck. */
+function reducePeek(state: SimState, club: ClubId, events: string[]): void {
+  requirePlay(state)
+  const spec = requireClub(state, club, 'instant')
+  if (!spec.peek) throw new SimError(`${spec.name} has nothing to show you`)
+  spendClub(state, club)
+  state.lastStroke = null
+  const n = Math.min(spec.peek, state.deck.length)
+  state.peeked = state.deck.slice(state.deck.length - n)
+  events.push(
+    `${spec.name}: next up — ${[...state.peeked].reverse().map(cardLabel).join(', ')}.`,
+  )
+}
+
+/** Persimmon: rewind to just before the last swing; the next result stands. */
+function reduceRetake(state: SimState, snapshot: MulliganSnapshot | null, events: string[]): void {
+  requirePlay(state)
+  if (!snapshot) throw new SimError('there is nothing to retake')
+  state.deck = snapshot.deck
+  state.discard = snapshot.discard
+  state.hand = snapshot.hand
+  state.hole = snapshot.hole
+  state.phase = snapshot.phase
+  state.reshufflesThisRound = snapshot.reshufflesThisRound
+  state.lastStroke = null
+  events.push("Persimmon says that one didn't count. Play it again.")
+}
+
 /** Ceremony: hire from the offer, or walk on (run start requires a pick). */
 function reduceCaddie(state: SimState, pick: CaddieId | null, events: string[]): void {
   if (state.phase !== 'ceremony') throw new SimError('there is no caddie offer right now')
@@ -586,18 +731,28 @@ export function reduceInPlace(state: SimState, action: SimAction): SimState {
   const next = state
   next.lastEvents = []
   const events = next.lastEvents
+  // Ephemeral windows close on the next action.
+  const snapshot = next.mulligan
+  next.mulligan = null
+  next.peeked = []
   switch (action.type) {
     case 'swing':
-      reduceSwing(next, action.cards, action.club, events)
+      reduceSwing(next, action.cards, action.club, action.wild, events)
       break
     case 'putt':
-      reducePutt(next, action.cards, action.aceValues, events)
+      reducePutt(next, action.cards, action.aceValues, action.club, events)
       break
     case 'reroll':
       reduceReroll(next, action.club, events)
       break
     case 'punch':
       reducePunch(next, action.club, action.discard, events)
+      break
+    case 'peek':
+      reducePeek(next, action.club, events)
+      break
+    case 'retake':
+      reduceRetake(next, snapshot, events)
       break
     case 'caddie':
       reduceCaddie(next, action.pick, events)
@@ -623,6 +778,7 @@ export function previewSwingAction(
   state: SimState,
   cards: readonly CardId[],
   club?: ClubId,
+  wild?: WildDecl,
 ): SwingPreview {
   if (state.phase !== 'swing' || !state.hole?.ball) throw new SimError('not in swing position')
   const ball = state.hole.ball
@@ -634,11 +790,39 @@ export function previewSwingAction(
     }
   }
   validateSelection(state, cards)
-  const hand: HandEval = evaluateHand(cards)
-  const rules = effectiveRules(state, ball.lie)
+  if (clubSpec?.fixedDistance !== undefined && cards.length !== 1) {
+    throw new SimError(`${clubSpec.name} plays exactly 1 card`)
+  }
+  const hand: HandEval = evaluateHand(applyWild(cards, wild, clubSpec))
+  let rules = effectiveRules(state, ball.lie)
+  if (clubSpec?.lieNeutral) rules = { ...rules, mult: 1.0 }
+  if (clubSpec?.cardCapBonus && (ball.lie === 'rough' || ball.lie === 'deepRough')) {
+    rules = { ...rules, maxCards: rules.maxCards + clubSpec.cardCapBonus }
+  }
   assertSwingLegal(ball.lie, hand, rules)
+  if (clubSpec?.fixedDistance !== undefined) {
+    return {
+      rank: hand.rank,
+      effBase: clubSpec.fixedDistance,
+      min: clubSpec.fixedDistance,
+      max: clubSpec.fixedDistance,
+      scatter: 0,
+      skidPossible: false,
+      junk: false,
+    }
+  }
+  const mods = clubModsFor(hand, clubSpec)
   const caddie = caddieSwing(state, hand)
-  return previewSwing(hand, ball.lie, state.hole.wind, caddie.windStrength, rules, clubSpec, caddie.mods)
+  if (clubSpec?.windImmune) {
+    caddie.windStrength = 0
+    caddie.mods.dragStrength = 0
+  }
+  const p = previewSwing(hand, ball.lie, state.hole.wind, caddie.windStrength, rules, mods, caddie.mods)
+  if (clubSpec?.capAtGreenFront) {
+    const cap = ball.side === 'short' ? Math.max(1, ball.remaining - GREEN_WINDOW) : ball.remaining
+    return { ...p, min: Math.min(p.min, cap), max: Math.min(p.max, cap) }
+  }
+  return p
 }
 
 export function scoreName(diff: number): string {

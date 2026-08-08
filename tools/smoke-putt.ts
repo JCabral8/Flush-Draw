@@ -22,7 +22,9 @@ page.on('console', (msg) => {
 page.on('pageerror', (err) => errors.push(String(err)))
 
 await page.goto(url)
-await page.waitForTimeout(1000)
+await page.waitForTimeout(900)
+await page.evaluate(() => window.__pg!.getState().startRun(0))
+await page.waitForTimeout(500)
 
 // Play strokes with a greedy-ish picker until we reach the green.
 for (let i = 0; i < 14; i++) {
