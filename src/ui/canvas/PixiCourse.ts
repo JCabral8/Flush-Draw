@@ -103,6 +103,8 @@ type Anim =
 const easeOutCubic = (t: number): number => 1 - Math.pow(1 - t, 3)
 
 export class PixiCourse {
+  /** Reduced motion: skip particles, shorten tweens (timings preserved-ish). */
+  reducedMotion = false
   private app = new Application()
   private ground = new Graphics()
   private ballG = new Graphics()
@@ -327,7 +329,7 @@ export class PixiCourse {
         scene,
         stroke,
         t0: performance.now(),
-        dur1: Math.min(500 + stroke.struck * 1.4, 1800),
+        dur1: this.reducedMotion ? 250 : Math.min(500 + stroke.struck * 1.4, 1800),
         dur2: stroke.finalPos !== stroke.landedPos ? 550 : stroke.outcome === 'holed' ? 350 : 250,
         landed: false,
       }
@@ -337,7 +339,7 @@ export class PixiCourse {
         scene,
         stroke,
         t0: performance.now(),
-        dur: 450 + stroke.rolledFt * 9,
+        dur: this.reducedMotion ? 250 : 450 + stroke.rolledFt * 9,
         sunk: false,
       }
     } else {
@@ -353,6 +355,7 @@ export class PixiCourse {
   }
 
   private spawnBurst(x: number, y: number, color: number, n: number, up: boolean): void {
+    if (this.reducedMotion) return
     for (let i = 0; i < n; i++) {
       const a = (Math.PI * (i + 0.5)) / n
       const sp = 0.6 + (i % 3) * 0.5

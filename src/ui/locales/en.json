@@ -108,5 +108,17 @@
   "wild.title": "declare the wildcard",
   "action.retake": "RETAKE",
   "deck.peek": "peeked",
-  "title.course": "Course"
+  "title.course": "Course",
+  "settings.title": "Settings",
+  "settings.sound": "Sound",
+  "settings.haptics": "Haptics",
+  "settings.reducedMotion": "Reduced motion",
+  "settings.fourColor": "Four-color deck",
+  "settings.textSize": "Text size",
+  "settings.on": "ON",
+  "settings.off": "OFF",
+  "settings.done": "DONE",
+  "settings.open": "settings",
+  "title.lesson": "THE 90-YARD LESSON",
+  "lesson.skip": "skip the lesson"
 }

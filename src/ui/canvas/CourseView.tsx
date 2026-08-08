@@ -38,6 +38,7 @@ export function CourseView(): JSX.Element {
     if (!course?.ready) return
     if (animSeq > 0 && animSeq !== lastSeqRef.current && prevSim && sim.lastStroke) {
       lastSeqRef.current = animSeq
+      course.reducedMotion = useGame.getState().prefs.reducedMotion
       course.animate(prevSim, sim.lastStroke, () => {
         const scene = sceneFrom(useGame.getState().sim)
         if (scene) course.render(scene)

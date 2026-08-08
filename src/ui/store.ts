@@ -25,6 +25,9 @@ import {
   type Suit,
 } from '../sim/index'
 import { clearRun, loadMeta, loadRun, saveMeta, saveRun, type SavedRun } from './storage'
+import { LESSON_COURSE, LESSON_SEED, type LessonStep } from './lesson'
+import { applyPrefs, buzz, loadPrefs, savePrefs, type Prefs } from './prefs'
+import { playCardTap, playHoled, playLand, playSplash, playThock } from './sound'
 
 function freshSeed(): string {
   const bytes = new Uint8Array(6)
@@ -105,6 +108,10 @@ function configFor(tier: number): RunConfig {
 interface UIStore {
   screen: 'title' | 'shop' | 'game'
   pendingTier: number
+  prefs: Prefs
+  settingsOpen: boolean
+  /** Active onboarding step, or null outside the lesson. */
+  lesson: LessonStep | null
   sim: SimState
   tier: number
   actions: SimAction[]
@@ -139,6 +146,9 @@ interface UIStore {
   startRun(tier: number): void
   continueRun(): void
   toTitle(): void
+  setPref<K extends keyof Prefs>(key: K, value: Prefs[K]): void
+  toggleSettings(open: boolean): void
+  startLesson(): void
 }
 
 function strokeDurationMs(sim: SimState): number {
@@ -151,6 +161,24 @@ function strokeDurationMs(sim: SimState): number {
 }
 
 const bootMeta = loadMeta()
+const bootPrefs = loadPrefs()
+if (typeof document !== 'undefined') applyPrefs(bootPrefs)
+
+const LESSON_DONE_KEY = 'pokergolf.lesson.v1'
+export function lessonDone(): boolean {
+  try {
+    return localStorage.getItem(LESSON_DONE_KEY) === '1'
+  } catch {
+    return true
+  }
+}
+function markLessonDone(): void {
+  try {
+    localStorage.setItem(LESSON_DONE_KEY, '1')
+  } catch {
+    /* fine */
+  }
+}
 
 export const useGame = create<UIStore>((set, get) => {
   /** Apply an action to the sim, log it, autosave. Returns the next state or null. */
@@ -185,6 +213,9 @@ export const useGame = create<UIStore>((set, get) => {
   return {
     screen: 'title',
     pendingTier: 1,
+    prefs: bootPrefs,
+    settingsOpen: false,
+    lesson: null,
     sim: initRound('title-bg', SUNNYVALE_FRONT_9),
     tier: PRACTICE,
     actions: [],
@@ -218,6 +249,7 @@ export const useGame = create<UIStore>((set, get) => {
               ? sim.config.puttMaxCards + (sim.config.putter === 'blade' ? 1 : 0)
               : 5
       if (selected.length >= max) return
+      if (get().prefs.sound) playCardTap()
       set({ selected: [...selected, id], error: null })
     },
 
@@ -302,6 +334,24 @@ export const useGame = create<UIStore>((set, get) => {
       const prev = sim
       const next = dispatch(action)
       if (next) {
+        const { prefs, lesson } = get()
+        if (prefs.sound && next.lastStroke?.kind === 'swing') {
+          try {
+            playThock(previewRankOf(selected, next))
+          } catch {
+            /* audio is garnish */
+          }
+        }
+        let lessonNext = lesson
+        if (lesson === 'swingBig' && next.lastStroke?.kind === 'swing') {
+          lessonNext = next.lastStroke.outcome === 'oob' ? 'aim' : 'natural'
+        } else if ((lesson === 'aim' || lesson === 'natural') && next.phase === 'putt') {
+          lessonNext = 'putt'
+        }
+        if (lesson && next.scores.length > 0) {
+          lessonNext = 'graduate'
+          markLessonDone()
+        }
         set({
           prevSim: prev,
           sim: next,
@@ -313,6 +363,7 @@ export const useGame = create<UIStore>((set, get) => {
           animSeq: get().animSeq + 1,
           animMs: strokeDurationMs(next),
           error: null,
+          lesson: lessonNext,
         })
       }
     },
@@ -326,7 +377,21 @@ export const useGame = create<UIStore>((set, get) => {
     },
 
     animationDone() {
-      const { sim, prevSim, tier, unlockedTier } = get()
+      const { sim, prevSim, tier, unlockedTier, prefs } = get()
+      const stroke = sim.lastStroke
+      if (stroke) {
+        const holed = stroke.kind === 'putt' ? stroke.holed : stroke.outcome === 'holed'
+        if (holed) {
+          if (prefs.sound) playHoled()
+          buzz(prefs, 30)
+        } else if (stroke.kind === 'swing') {
+          if (prefs.sound) {
+            if (stroke.outcome === 'water') playSplash()
+            else playLand()
+          }
+          buzz(prefs, 10)
+        }
+      }
       const holeFinished = prevSim !== null && sim.scores.length > prevSim.scores.length
       const runOver = sim.phase === 'runComplete'
       if (!holeFinished && !runOver) {
@@ -421,7 +486,62 @@ export const useGame = create<UIStore>((set, get) => {
     },
 
     toTitle() {
-      set({ screen: 'title', done: null, hasSave: loadRun() !== null })
+      set({ screen: 'title', done: null, lesson: null, hasSave: loadRun() !== null })
+    },
+
+    setPref(key, value) {
+      const prefs = { ...get().prefs, [key]: value }
+      savePrefs(prefs)
+      set({ prefs })
+    },
+
+    toggleSettings(open) {
+      set({ settingsOpen: open })
+    },
+
+    startLesson() {
+      const sim = initRound(LESSON_SEED, LESSON_COURSE, { ...DEFAULT_CONFIG, windStrength: 0 })
+      set({
+        screen: 'game',
+        sim,
+        tier: PRACTICE,
+        actions: [],
+        hasSave: loadRun() !== null,
+        prevSim: null,
+        selected: [],
+        aceDecls: {},
+        armedClub: null,
+        animating: false,
+        animSeq: 0,
+        animMs: 400,
+        done: null,
+        error: null,
+        lesson: 'swingBig',
+      })
     },
   }
 })
+
+/** Best-effort hand rank of the just-played swing, for the thock pitch. */
+function previewRankOf(
+  cards: readonly CardId[],
+  next: SimState,
+): import('../sim/index').HandRank {
+  void cards
+  const line = next.lastEvents.find((e) => e.startsWith('Swung'))
+  const names: [string, import('../sim/index').HandRank][] = [
+    ['Royal Flush', 'royalFlush'],
+    ['Straight Flush', 'straightFlush'],
+    ['Four of a Kind', 'quads'],
+    ['Full House', 'fullHouse'],
+    ['Flush', 'flush'],
+    ['Straight', 'straight'],
+    ['Three of a Kind', 'trips'],
+    ['Two Pair', 'twoPair'],
+    ['Pair', 'pair'],
+  ]
+  for (const [label, rank] of names) {
+    if (line?.includes(label)) return rank
+  }
+  return 'highCard'
+}

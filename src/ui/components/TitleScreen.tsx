@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { COURSES, TIERS, type CourseId } from '../../sim/index'
 import { t } from '../i18n'
-import { loadCoursePref, saveCoursePref, useGame } from '../store'
+import { lessonDone, loadCoursePref, saveCoursePref, useGame } from '../store'
 
 export function TitleScreen(): JSX.Element {
   const hasSave = useGame((s) => s.hasSave)
@@ -10,6 +10,8 @@ export function TitleScreen(): JSX.Element {
   const continueRun = useGame((s) => s.continueRun)
   const [tier, setTier] = useState(Math.min(unlockedTier, 8))
   const [course, setCourse] = useState<CourseId>(loadCoursePref())
+  const startLesson = useGame((s) => s.startLesson)
+  const toggleSettings = useGame((s) => s.toggleSettings)
 
   return (
     <div className="title">
@@ -68,7 +70,20 @@ export function TitleScreen(): JSX.Element {
         <button type="button" className="go go-quiet" onClick={() => openShop(0)}>
           {t('title.practice')}
         </button>
+        {!lessonDone() && (
+          <button type="button" className="go go-quiet" onClick={startLesson}>
+            {t('title.lesson')}
+          </button>
+        )}
       </div>
+      <button
+        type="button"
+        className="gear title-gear"
+        aria-label={t('settings.open')}
+        onClick={() => toggleSettings(true)}
+      >
+        ⚙
+      </button>
     </div>
   )
 }

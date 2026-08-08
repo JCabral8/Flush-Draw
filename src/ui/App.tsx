@@ -8,18 +8,23 @@ import { DoneOverlay } from './components/DoneOverlay'
 import { EventLine } from './components/EventLine'
 import { Hand } from './components/Hand'
 import { Hud } from './components/Hud'
+import { SettingsOverlay } from './components/Settings'
 import { StatusRow } from './components/StatusRow'
 import { TitleScreen } from './components/TitleScreen'
+import { LESSON_LINES } from './lesson'
 import { t } from './i18n'
 import { useGame } from './store'
 
 export function App(): JSX.Element {
   const screen = useGame((s) => s.screen)
   const sim = useGame((s) => s.sim)
+  const lesson = useGame((s) => s.lesson)
+  const toggleSettings = useGame((s) => s.toggleSettings)
   if (screen === 'title') {
     return (
       <div className="shell">
         <TitleScreen />
+        <SettingsOverlay />
       </div>
     )
   }
@@ -34,11 +39,22 @@ export function App(): JSX.Element {
 
   return (
     <div className="shell">
-      <div className="brand num">{t('app.title')}</div>
+      <div className="brand num">
+        {t('app.title')}
+        <button
+          type="button"
+          className="gear"
+          aria-label={t('settings.open')}
+          onClick={() => toggleSettings(true)}
+        >
+          ⚙
+        </button>
+      </div>
       <Hud />
       <CourseView />
       <EventLine />
-      {firstTee && <div className="tip">{t('onboard.tip')}</div>}
+      {lesson && <div className="tip lesson-line">{LESSON_LINES[lesson]}</div>}
+      {firstTee && !lesson && <div className="tip">{t('onboard.tip')}</div>}
       <div className="bottom">
         <StatusRow />
         <ClubBar />
@@ -48,6 +64,7 @@ export function App(): JSX.Element {
       </div>
       <DoneOverlay />
       <CeremonyOverlay />
+      <SettingsOverlay />
     </div>
   )
 }
