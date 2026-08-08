@@ -1,4 +1,5 @@
 import type { CardId, Suit } from './cards'
+import { DEFAULT_BAG, type ClubId, type PutterId } from './clubs'
 import type { RngState } from './rng'
 
 /** Lies a hole layout may author. Green/fringe/OOB are positional, not authored. */
@@ -43,6 +44,10 @@ export interface RunConfig {
   reshufflePenalty: number
   /** Pick-up cap: hole scored par + this (GDD §3.7 / D5). */
   capOverPar: number
+  /** The bag: up to 5 clubs (GDD §7). */
+  bag: ClubId[]
+  /** Putter variant in the free sixth slot. */
+  putter: PutterId
 }
 
 export const DEFAULT_CONFIG: RunConfig = {
@@ -53,6 +58,8 @@ export const DEFAULT_CONFIG: RunConfig = {
   gimmeFt: 3,
   reshufflePenalty: 1,
   capOverPar: 4,
+  bag: [...DEFAULT_BAG],
+  putter: 'blade',
 }
 
 export interface Wind {
@@ -112,11 +119,17 @@ export interface SimState {
   lastEvents: string[]
   /** Physics of the last action, for animation. Replaced each action. */
   lastStroke: StrokeResult | null
+  /** Remaining round charges for finite-charge clubs in the bag. */
+  clubCharges: Partial<Record<ClubId, number>>
+  /** Per-hole club uses (Driver); reset at each tee. */
+  clubUsedThisHole: Partial<Record<ClubId, number>>
 }
 
 export type SimAction =
-  | { type: 'swing'; cards: CardId[] }
+  | { type: 'swing'; cards: CardId[]; club?: ClubId }
   | { type: 'putt'; cards: CardId[]; aceValues?: Record<CardId, 1 | 14> }
+  | { type: 'reroll'; club: ClubId }
+  | { type: 'punch'; club: ClubId; discard: CardId[] }
 
 /**
  * What the last action physically did — part of state so the UI animates the

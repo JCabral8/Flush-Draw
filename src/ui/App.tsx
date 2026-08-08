@@ -1,5 +1,6 @@
 import { CourseView } from './canvas/CourseView'
 import { ActionBar } from './components/ActionBar'
+import { ClubBar } from './components/ClubBar'
 import { DoneOverlay } from './components/DoneOverlay'
 import { EventLine } from './components/EventLine'
 import { Hand } from './components/Hand'
@@ -21,6 +22,7 @@ export function App(): JSX.Element {
       {firstTee && <div className="tip">{t('onboard.tip')}</div>}
       <div className="bottom">
         <StatusRow />
+        <ClubBar />
         <Hand />
         <ActionBar />
       </div>

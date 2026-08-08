@@ -205,11 +205,15 @@ describe('putting through the engine', () => {
     expect(st2.scores.length).toBe(1)
   })
 
-  it('enforces the putt card ceiling from config', () => {
-    const st = baseState()
-    setGreen(st, 60, false, 'center')
-    setHand(st, ['2S', '3S', '4S'])
-    expect(() => reduce(st, { type: 'putt', cards: ['2S', '3S', '4S'] })).toThrow(/at most 2/)
+  it('the Blade putter allows 3 cards; 4 is too many (D10)', () => {
+    let st = baseState()
+    setGreen(st, 27, false, 'center')
+    setHand(st, ['2S', '3S', '4S', '5S'])
+    expect(() =>
+      reduce(st, { type: 'putt', cards: ['2S', '3S', '4S', '5S'] }),
+    ).toThrow(/at most 3/)
+    st = reduce(st, { type: 'putt', cards: ['2S', '3S', '4S'] }) // 9 × 3 = 27 → holed
+    expect(st.scores.length).toBe(1)
   })
 })
 

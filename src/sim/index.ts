@@ -5,6 +5,7 @@
  */
 export * from './rng'
 export * from './cards'
+export * from './clubs'
 export * from './hands'
 export * from './types'
 export * from './swing'

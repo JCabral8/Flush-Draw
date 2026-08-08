@@ -3,6 +3,7 @@ import {
   evaluateHand,
   previewPutt,
   previewSwingAction,
+  putterMaxCards,
   SimError,
 } from '../../sim/index'
 import { t } from '../i18n'
@@ -16,7 +17,15 @@ interface Preview {
 }
 
 function computePreview(): Preview {
-  const { sim, selected, aceDecls } = useGame.getState()
+  const { sim, selected, aceDecls, armedClub } = useGame.getState()
+  if (armedClub === 'punchIron') {
+    return {
+      label: t('club.punchIron.name'),
+      detail: t('punch.hint'),
+      warn: null,
+      legal: selected.length === 2,
+    }
+  }
   if (selected.length === 0) {
     return { label: t('action.selectCards'), detail: '', warn: null, legal: false }
   }
@@ -39,7 +48,7 @@ function computePreview(): Preview {
         },
         green,
         sim.hole!.pin,
-        sim.config.puttMaxCards,
+        putterMaxCards(sim.config.putter, sim.config.puttMaxCards),
         sim.config.gimmeFt,
       )
       return {
@@ -49,7 +58,7 @@ function computePreview(): Preview {
         legal: true,
       }
     }
-    const p = previewSwingAction(sim, selected)
+    const p = previewSwingAction(sim, selected, armedClub ?? undefined)
     const hand = evaluateHand(selected)
     return {
       label: t(`hand.${hand.rank}`),
@@ -76,8 +85,15 @@ export function ActionBar(): JSX.Element {
   const play = useGame((s) => s.play)
   void sim
   void selected
+  const armedClub = useGame((s) => s.armedClub)
   const preview = computePreview()
   const putting = sim.phase === 'putt' || sim.hole?.ball?.lie === 'fringe'
+  const buttonLabel =
+    armedClub === 'punchIron'
+      ? t('action.discard')
+      : putting
+        ? t('action.putt')
+        : t('action.swing')
 
   return (
     <div className="actionbar">
@@ -92,7 +108,7 @@ export function ActionBar(): JSX.Element {
         disabled={!preview.legal || animating}
         onClick={play}
       >
-        {putting ? t('action.putt') : t('action.swing')}
+        {buttonLabel}
       </button>
     </div>
   )

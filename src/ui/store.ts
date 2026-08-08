@@ -1,11 +1,13 @@
 import { create } from 'zustand'
 import {
+  CLUBS,
   initRound,
   reduce,
   SimError,
   SUNNYVALE_FRONT_9,
   cardFromId,
   type CardId,
+  type ClubId,
   type SimAction,
   type SimState,
 } from '../sim/index'
@@ -30,6 +32,8 @@ interface UIStore {
   prevSim: SimState | null
   selected: CardId[]
   aceDecls: Record<CardId, 1 | 14>
+  /** Armed club for the next swing (or 'punchIron' = discard mode). */
+  armedClub: ClubId | null
   animating: boolean
   /** Bumps once per accepted action; the canvas reacts to it. */
   animSeq: number
@@ -40,6 +44,7 @@ interface UIStore {
 
   toggleCard(id: CardId): void
   toggleAce(id: CardId): void
+  toggleClub(id: ClubId): void
   play(): void
   animationDone(): void
   nextHole(): void
@@ -60,6 +65,7 @@ export const useGame = create<UIStore>((set, get) => ({
   prevSim: null,
   selected: [],
   aceDecls: {},
+  armedClub: null,
   animating: false,
   animSeq: 0,
   animMs: 400,
@@ -67,15 +73,44 @@ export const useGame = create<UIStore>((set, get) => ({
   error: null,
 
   toggleCard(id) {
-    const { sim, selected, animating, done } = get()
+    const { sim, selected, animating, done, armedClub } = get()
     if (animating || done) return
     if (selected.includes(id)) {
       set({ selected: selected.filter((c) => c !== id), error: null })
       return
     }
-    const max = sim.phase === 'putt' ? sim.config.puttMaxCards : 5
+    const max =
+      armedClub === 'punchIron'
+        ? 2
+        : sim.phase === 'putt'
+          ? sim.config.puttMaxCards + (sim.config.putter === 'blade' ? 1 : 0)
+          : 5
     if (selected.length >= max) return
     set({ selected: [...selected, id], error: null })
+  },
+
+  toggleClub(id) {
+    const { sim, armedClub, animating, done } = get()
+    if (animating || done) return
+    if (armedClub === id) {
+      set({ armedClub: null, error: null })
+      return
+    }
+    const spec = CLUBS[id]
+    if (spec.kind === 'passive') return
+    if (id === 'sevenIron') {
+      // Instant: reroll now.
+      try {
+        const next = reduce(sim, { type: 'reroll', club: id })
+        set({ sim: next, prevSim: sim, selected: [], aceDecls: {}, armedClub: null, error: null })
+      } catch (e) {
+        if (e instanceof SimError) set({ error: e.message })
+        else throw e
+      }
+      return
+    }
+    // Punch Iron arms discard mode; swing clubs arm the next swing.
+    set({ armedClub: id, selected: [], error: null })
   },
 
   toggleAce(id) {
@@ -84,8 +119,20 @@ export const useGame = create<UIStore>((set, get) => ({
   },
 
   play() {
-    const { sim, selected, aceDecls, animating, done } = get()
+    const { sim, selected, aceDecls, animating, done, armedClub } = get()
     if (animating || done || selected.length === 0) return
+
+    if (armedClub === 'punchIron') {
+      try {
+        const next = reduce(sim, { type: 'punch', club: 'punchIron', discard: selected })
+        set({ sim: next, prevSim: sim, selected: [], armedClub: null, error: null })
+      } catch (e) {
+        if (e instanceof SimError) set({ error: e.message })
+        else throw e
+      }
+      return
+    }
+
     const isPutt = sim.phase === 'putt' || sim.hole?.ball?.lie === 'fringe'
     const action: SimAction = isPutt
       ? {
@@ -95,7 +142,7 @@ export const useGame = create<UIStore>((set, get) => ({
             selected.filter((id) => cardFromId(id).rank === 14).map((id) => [id, aceDecls[id] ?? 1]),
           ),
         }
-      : { type: 'swing', cards: selected }
+      : { type: 'swing', cards: selected, ...(armedClub ? { club: armedClub } : {}) }
     try {
       const next = reduce(sim, action)
       set({
@@ -103,6 +150,7 @@ export const useGame = create<UIStore>((set, get) => ({
         sim: next,
         selected: [],
         aceDecls: {},
+        armedClub: null,
         animating: true,
         animSeq: get().animSeq + 1,
         animMs: strokeDurationMs(next),
@@ -139,7 +187,7 @@ export const useGame = create<UIStore>((set, get) => ({
   },
 
   nextHole() {
-    set({ done: null, selected: [], aceDecls: {}, prevSim: null })
+    set({ done: null, selected: [], aceDecls: {}, armedClub: null, prevSim: null })
   },
 
   newRound() {
@@ -148,6 +196,7 @@ export const useGame = create<UIStore>((set, get) => ({
       prevSim: null,
       selected: [],
       aceDecls: {},
+      armedClub: null,
       animating: false,
       animSeq: 0,
       animMs: 400,

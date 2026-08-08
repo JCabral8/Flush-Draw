@@ -63,3 +63,9 @@ The milestone asks for one hole; the engine already plays nine, so "next hole" s
 
 **D20 — Text sizes are still px in M2.**
 GDD demands full text scaling with no hardcoded font sizes; the M2 layout uses px/clamp. Accepted as scoped debt until the M7 accessibility pass, where type moves to rem with a scale setting.
+
+**D21 — M3 ships the club *system* with 6 clubs + Blade; the 24-club collection is M5 content.**
+The launch set (Driver, 3-Wood, 7-Iron, Pitching Wedge, Punch Iron, Sand Wedge, Blade) deliberately covers every hook type a club can need: distance mult, flat add, post-scatter shaping (halve), lie bending (bunker passive), resolution bending (PW's long-side green window), instant card actions (reroll / discard-draw), and putter variants. M5 clubs are data + small handlers on these hooks, not new architecture. Also resolved: the 7-Iron reroll is swing-phase only ("before swinging" per GDD), and PW's stuck long-side balls putt downhill (consistent with every other above-the-hole rule).
+
+**D22 — Club UX: arm-then-swing; instants fire on tap.**
+Swing clubs (Driver/3W/PW) arm a chip and modify the previewed swing; the 7-Iron rerolls immediately on tap; the Punch Iron arms a discard mode where the main button becomes DISCARD 2. One armed club max; arming clears on any action. Charges shown as dots on the chip.

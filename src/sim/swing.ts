@@ -41,9 +41,19 @@ export function windMod(hand: HandEval, wind: Wind, strength: number): number {
   return 1 + (strength * (boost - drag)) / hand.cards.length
 }
 
+/** Club effects that touch the distance math (GDD §7). */
+export interface ClubMods {
+  distMult?: number
+  distFlat?: number
+  halve?: boolean
+}
+
 /** Returns an error message if this hand may not be swung from this lie. */
-export function swingRestriction(lie: SwingLie, hand: HandEval): string | null {
-  const rules = LIE_RULES[lie]
+export function swingRestriction(
+  lie: SwingLie,
+  hand: HandEval,
+  rules: LieRules = LIE_RULES[lie],
+): string | null {
   if (hand.cards.length > rules.maxCards) {
     return `${LIE_LABELS[lie]} allows at most ${rules.maxCards} cards`
   }
@@ -53,16 +63,29 @@ export function swingRestriction(lie: SwingLie, hand: HandEval): string | null {
   return null
 }
 
-export function assertSwingLegal(lie: SwingLie, hand: HandEval): void {
-  const err = swingRestriction(lie, hand)
+export function assertSwingLegal(lie: SwingLie, hand: HandEval, rules?: LieRules): void {
+  const err = swingRestriction(lie, hand, rules)
   if (err) throw new SimError(err)
 }
 
-/** Deterministic part of the swing (before scatter/skid). GDD §3.1. */
-export function struckBase(hand: HandEval, lie: SwingLie, wind: Wind, windStrength: number): number {
+/** Deterministic part of the swing (before scatter/skid). GDD §3.1/§7. */
+export function struckBase(
+  hand: HandEval,
+  lie: SwingLie,
+  wind: Wind,
+  windStrength: number,
+  rules: LieRules = LIE_RULES[lie],
+  club?: ClubMods,
+): number {
   const effBase = BASE_YARDS[hand.rank] + hand.pips
-  const raw = effBase * LIE_RULES[lie].mult * windMod(hand, wind, windStrength)
-  return Math.round(raw)
+  const raw = effBase * (club?.distMult ?? 1) * rules.mult * windMod(hand, wind, windStrength)
+  return Math.round(raw) + (club?.distFlat ?? 0)
+}
+
+/** Post-scatter shaping: clamp then Pitching Wedge halving (round down). */
+export function finishStruck(struck: number, club?: ClubMods): number {
+  const clamped = Math.max(1, struck)
+  return club?.halve ? Math.max(1, Math.floor(clamped / 2)) : clamped
 }
 
 export interface SwingPreview {
@@ -82,15 +105,17 @@ export function previewSwing(
   lie: SwingLie,
   wind: Wind,
   windStrength: number,
+  rules: LieRules = LIE_RULES[lie],
+  club?: ClubMods,
 ): SwingPreview {
-  const base = struckBase(hand, lie, wind, windStrength)
+  const base = struckBase(hand, lie, wind, windStrength, rules, club)
   const scatter = SCATTER[hand.rank]
-  const skid = LIE_RULES[lie].skid ? 25 : 0
+  const skid = rules.skid ? 25 : 0
   return {
     rank: hand.rank,
     effBase: BASE_YARDS[hand.rank] + hand.pips,
-    min: Math.max(1, base - scatter - skid),
-    max: base + scatter + skid,
+    min: finishStruck(base - scatter - skid, club),
+    max: finishStruck(base + scatter + skid, club),
     scatter,
     skidPossible: skid > 0,
     junk: hand.junk,
