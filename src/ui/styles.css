@@ -595,6 +595,40 @@ body {
   gap: 6px;
 }
 
+/* ---- course picker ---- */
+.title-courses {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  max-width: 360px;
+}
+.course-pick {
+  border-radius: 9px;
+  border: 1.5px solid rgba(244, 234, 208, 0.25);
+  background: rgba(244, 234, 208, 0.05);
+  color: var(--cream);
+  font-family: inherit;
+  text-align: left;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  cursor: pointer;
+}
+.course-pick.sel {
+  background: var(--cream);
+  color: var(--ink);
+}
+.course-pick-name {
+  font-weight: 800;
+  font-size: 13.5px;
+}
+.course-pick-tag {
+  font-size: 10.5px;
+  opacity: 0.75;
+}
+
 /* ---- pro shop ---- */
 .shop {
   flex: 1;

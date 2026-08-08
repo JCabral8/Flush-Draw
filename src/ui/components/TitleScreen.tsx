@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { TIERS } from '../../sim/index'
+import { COURSES, TIERS, type CourseId } from '../../sim/index'
 import { t } from '../i18n'
-import { useGame } from '../store'
+import { loadCoursePref, saveCoursePref, useGame } from '../store'
 
 export function TitleScreen(): JSX.Element {
   const hasSave = useGame((s) => s.hasSave)
@@ -9,6 +9,7 @@ export function TitleScreen(): JSX.Element {
   const openShop = useGame((s) => s.openShop)
   const continueRun = useGame((s) => s.continueRun)
   const [tier, setTier] = useState(Math.min(unlockedTier, 8))
+  const [course, setCourse] = useState<CourseId>(loadCoursePref())
 
   return (
     <div className="title">
@@ -34,6 +35,25 @@ export function TitleScreen(): JSX.Element {
             </button>
           )
         })}
+      </div>
+
+      <div className="title-courses" role="radiogroup" aria-label={t('title.course')}>
+        {(Object.keys(COURSES) as CourseId[]).map((id) => (
+          <button
+            key={id}
+            type="button"
+            role="radio"
+            aria-checked={course === id}
+            className={`course-pick ${course === id ? 'sel' : ''}`}
+            onClick={() => {
+              setCourse(id)
+              saveCoursePref(id)
+            }}
+          >
+            <span className="course-pick-name">{COURSES[id].name}</span>
+            <span className="course-pick-tag">{COURSES[id].tagline}</span>
+          </button>
+        ))}
       </div>
 
       <div className="title-actions">

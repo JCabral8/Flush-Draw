@@ -348,3 +348,29 @@ describe('caddie data', () => {
     }
   })
 })
+
+describe('Ironwood Pines (M5c)', () => {
+  it('front 9, back 9 and championship all validate; run is 27 holes', async () => {
+    const { IRONWOOD_FRONT_9, IRONWOOD_BACK_9, IRONWOOD_CHAMPIONSHIP, IRONWOOD_RUN, COURSES } =
+      await import('../src/sim/index')
+    expect(validateCourse(IRONWOOD_RUN)).toEqual([])
+    expect(IRONWOOD_FRONT_9.reduce((a, h) => a + h.par, 0)).toBe(36)
+    expect(IRONWOOD_BACK_9.reduce((a, h) => a + h.par, 0)).toBe(36)
+    expect(IRONWOOD_CHAMPIONSHIP.reduce((a, h) => a + h.par, 0)).toBe(36)
+    expect(IRONWOOD_CHAMPIONSHIP.filter((h) => h.pinBias === 'back').length).toBe(3)
+    expect(Object.keys(COURSES).length).toBe(2)
+    for (const h of IRONWOOD_RUN) {
+      expect(h.flavor.length).toBeGreaterThan(10)
+    }
+  })
+
+  it('a tour run plays on Ironwood', async () => {
+    const { IRONWOOD_RUN } = await import('../src/sim/index')
+    let st = initRound('iron-run', IRONWOOD_RUN, { ...DEFAULT_CONFIG, windStrength: 0 })
+    setBall(st, { remaining: 85, lie: 'fairway', pin: 'center', effLength: 340 })
+    setHand(st, ['2S', '2H'])
+    st = reduce(st, { type: 'swing', cards: ['2S', '2H'] })
+    expect(st.scores).toEqual([1])
+    expect(st.hole!.index).toBe(1)
+  })
+})

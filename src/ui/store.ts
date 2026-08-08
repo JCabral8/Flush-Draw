@@ -1,8 +1,10 @@
 import { create } from 'zustand'
 import {
   CLUBS,
+  COURSES,
   DEFAULT_BAG,
   DEFAULT_CONFIG,
+  DEFAULT_COURSE,
   initRound,
   reduce,
   replay,
@@ -14,6 +16,7 @@ import {
   type CaddieId,
   type CardId,
   type ClubId,
+  type CourseId,
   type PutterId,
   type RunConfig,
   type RunEndReason,
@@ -68,8 +71,29 @@ export function saveBagPrefs(prefs: BagPrefs): void {
   }
 }
 
+const COURSE_KEY = 'pokergolf.course.v1'
+
+export function loadCoursePref(): CourseId {
+  try {
+    const raw = localStorage.getItem(COURSE_KEY)
+    if (raw && raw in COURSES) return raw as CourseId
+  } catch {
+    /* default */
+  }
+  return DEFAULT_COURSE
+}
+
+export function saveCoursePref(id: CourseId): void {
+  try {
+    localStorage.setItem(COURSE_KEY, id)
+  } catch {
+    /* best effort */
+  }
+}
+
 function courseFor(tier: number): typeof SUNNYVALE_RUN {
-  return tier === PRACTICE ? SUNNYVALE_FRONT_9 : SUNNYVALE_RUN
+  const spec = COURSES[loadCoursePref()]
+  return tier === PRACTICE ? spec.front9 : spec.run
 }
 
 function configFor(tier: number): RunConfig {
@@ -145,7 +169,7 @@ export const useGame = create<UIStore>((set, get) => {
           }
         }
       } else {
-        saveRun({ v: 1, seed: sim.seed, tier, actions: log })
+        saveRun({ v: 1, seed: sim.seed, tier, course: loadCoursePref(), actions: log })
       }
       set({ actions: log, hasSave: next.phase !== 'runComplete' })
       return next
@@ -348,7 +372,7 @@ export const useGame = create<UIStore>((set, get) => {
       const seed = freshSeed()
       const sim = initRound(seed, courseFor(tier), configFor(tier))
       if (tier === PRACTICE) clearRun()
-      else saveRun({ v: 1, seed, tier, actions: [] })
+      else saveRun({ v: 1, seed, tier, course: loadCoursePref(), actions: [] })
       set({
         screen: 'game',
         sim,
@@ -371,6 +395,7 @@ export const useGame = create<UIStore>((set, get) => {
       const saved: SavedRun | null = loadRun()
       if (!saved) return
       try {
+        if (saved.course && saved.course in COURSES) saveCoursePref(saved.course as CourseId)
         const sim = replay(saved.seed, courseFor(saved.tier), saved.actions, configFor(saved.tier))
         if (sim.phase === 'runComplete') throw new Error('finished run')
         set({

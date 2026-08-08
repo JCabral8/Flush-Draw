@@ -9,6 +9,7 @@ export interface SavedRun {
   v: 1
   seed: string
   tier: number
+  course?: string
   actions: SimAction[]
 }
 

@@ -21,3 +21,10 @@ export {
   SUNNYVALE_CHAMPIONSHIP,
   SUNNYVALE_RUN,
 } from './data/sunnyvale'
+export {
+  IRONWOOD_FRONT_9,
+  IRONWOOD_BACK_9,
+  IRONWOOD_CHAMPIONSHIP,
+  IRONWOOD_RUN,
+} from './data/ironwood'
+export * from './data/courses'

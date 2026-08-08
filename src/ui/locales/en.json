@@ -107,5 +107,6 @@
   "shop.back": "back",
   "wild.title": "declare the wildcard",
   "action.retake": "RETAKE",
-  "deck.peek": "peeked"
+  "deck.peek": "peeked",
+  "title.course": "Course"
 }
