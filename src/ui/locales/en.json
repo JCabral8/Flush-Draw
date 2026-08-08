@@ -120,5 +120,18 @@
   "settings.done": "DONE",
   "settings.open": "settings",
   "title.lesson": "THE 90-YARD LESSON",
-  "lesson.skip": "skip the lesson"
+  "lesson.skip": "skip the lesson",
+  "title.daily": "DAILY — {date}",
+  "title.dailyDone": "DAILY {date}: {score}",
+  "title.match": "MATCH PLAY",
+  "daily.badge": "DAILY",
+  "match.up": "{n} UP",
+  "match.down": "{n} DOWN",
+  "match.allSquare": "ALL SQUARE",
+  "match.thru": "thru {n}",
+  "match.win": "MATCH WON",
+  "match.loss": "MATCH LOST",
+  "match.halved": "MATCH HALVED",
+  "daily.share": "COPY RESULT",
+  "daily.streak": "streak {n}"
 }

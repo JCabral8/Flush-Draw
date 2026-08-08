@@ -1,7 +1,30 @@
 import { useState } from 'react'
 import { COURSES, TIERS, type CourseId } from '../../sim/index'
 import { t } from '../i18n'
-import { lessonDone, loadCoursePref, saveCoursePref, useGame } from '../store'
+import { dailyCourse, lessonDone, loadCoursePref, saveCoursePref, useGame, utcToday } from '../store'
+import { loadDaily } from '../storage'
+
+function DailyButton(): JSX.Element {
+  const startDaily = useGame((s) => s.startDaily)
+  const date = utcToday()
+  const rec = loadDaily()
+  const playedToday = rec?.date === date && rec.started
+  if (playedToday) {
+    const score =
+      rec!.toPar === null ? '—' : rec!.toPar === 0 ? 'E' : rec!.toPar > 0 ? `+${rec!.toPar}` : `${rec!.toPar}`
+    return (
+      <button type="button" className="go go-quiet" disabled>
+        {t('title.dailyDone', { date, score })}
+      </button>
+    )
+  }
+  void dailyCourse
+  return (
+    <button type="button" className="go go-quiet" onClick={startDaily}>
+      {t('title.daily', { date })}
+    </button>
+  )
+}
 
 export function TitleScreen(): JSX.Element {
   const hasSave = useGame((s) => s.hasSave)
@@ -69,6 +92,10 @@ export function TitleScreen(): JSX.Element {
         </button>
         <button type="button" className="go go-quiet" onClick={() => openShop(0)}>
           {t('title.practice')}
+        </button>
+        <DailyButton />
+        <button type="button" className="go go-quiet" onClick={useGame.getState().startMatch}>
+          {t('title.match')}
         </button>
         {!lessonDone() && (
           <button type="button" className="go go-quiet" onClick={startLesson}>

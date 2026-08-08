@@ -1,6 +1,7 @@
 import { toParString } from '../../sim/index'
 import { t } from '../i18n'
-import { useGame } from '../store'
+import { matchStatus, useGame } from '../store'
+import { loadDaily } from '../storage'
 
 function scoreLabel(diff: number): string {
   if (diff <= -3) return t('score.albatross')
@@ -51,15 +52,23 @@ export function DoneOverlay(): JSX.Element | null {
   const animating = useGame((s) => s.animating)
   const nextHole = useGame((s) => s.nextHole)
   const toTitle = useGame((s) => s.toTitle)
+  const mode = useGame((s) => s.mode)
+  const ghost = useGame((s) => s.ghost)
+  const sim = useGame((s) => s.sim)
+  const shareDaily = useGame((s) => s.shareDaily)
   if (!done || animating) return null
 
   if (done.runEnd) {
-    const heading =
+    let heading =
       done.runEnd === 'complete'
         ? t('run.complete')
         : done.runEnd === 'missedCut'
           ? t('run.missedCut')
           : t('run.deckDead')
+    if (mode === 'match' && ghost) {
+      const { up } = matchStatus(sim.scores, ghost)
+      heading = up > 0 ? t('match.win') : up < 0 ? t('match.loss') : t('match.halved')
+    }
     return (
       <div className="overlay">
         <div className="overlay-card">
@@ -74,6 +83,14 @@ export function DoneOverlay(): JSX.Element | null {
           )}
           {done.totals?.unlocked && (
             <div className="overlay-unlock">{t('run.unlocked', { n: done.totals.unlocked })}</div>
+          )}
+          {mode === 'daily' && (
+            <>
+              <div className="overlay-sub">{t('daily.streak', { n: loadDaily()?.streak ?? 0 })}</div>
+              <button type="button" className="go go-quiet" onClick={shareDaily}>
+                {t('daily.share')}
+              </button>
+            </>
           )}
           <button type="button" className="go" onClick={toTitle}>
             {t('run.clubhouse')}

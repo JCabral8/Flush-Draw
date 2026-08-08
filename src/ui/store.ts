@@ -5,6 +5,9 @@ import {
   DEFAULT_BAG,
   DEFAULT_CONFIG,
   DEFAULT_COURSE,
+  policyAction,
+  reduceInPlace,
+  seedStream,
   initRound,
   reduce,
   replay,
@@ -24,7 +27,16 @@ import {
   type SimState,
   type Suit,
 } from '../sim/index'
-import { clearRun, loadMeta, loadRun, saveMeta, saveRun, type SavedRun } from './storage'
+import {
+  clearRun,
+  loadDaily,
+  loadMeta,
+  loadRun,
+  saveDaily,
+  saveMeta,
+  saveRun,
+  type SavedRun,
+} from './storage'
 import { LESSON_COURSE, LESSON_SEED, type LessonStep } from './lesson'
 import { applyPrefs, buzz, loadPrefs, savePrefs, type Prefs } from './prefs'
 import { playCardTap, playHoled, playLand, playSplash, playThock } from './sound'
@@ -41,6 +53,39 @@ export interface HoleDone {
   name: string
   runEnd: RunEndReason | null
   totals: { strokes: number; toPar: number; unlocked: number | null } | null
+}
+
+export type GameMode = 'tour' | 'daily' | 'match'
+
+export interface Ghost {
+  name: string
+  scores: number[]
+}
+
+/** UTC date string — the whole world plays the same Daily (GDD §11). */
+export function utcToday(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
+export function dailySeed(date: string): string {
+  return `daily-${date}`
+}
+
+export function dailyCourse(date: string): CourseId {
+  const n = Number(date.replaceAll('-', ''))
+  const ids = Object.keys(COURSES) as CourseId[]
+  return ids[n % ids.length]!
+}
+
+/** Match status vs a ghost: positive = player up. */
+export function matchStatus(scores: number[], ghost: Ghost): { up: number; thru: number } {
+  let up = 0
+  const thru = Math.min(scores.length, ghost.scores.length)
+  for (let i = 0; i < thru; i++) {
+    if (scores[i]! < ghost.scores[i]!) up++
+    else if (scores[i]! > ghost.scores[i]!) up--
+  }
+  return { up, thru }
 }
 
 /** Practice mode sentinel tier. */
@@ -112,6 +157,8 @@ interface UIStore {
   settingsOpen: boolean
   /** Active onboarding step, or null outside the lesson. */
   lesson: LessonStep | null
+  mode: GameMode
+  ghost: Ghost | null
   sim: SimState
   tier: number
   actions: SimAction[]
@@ -149,6 +196,9 @@ interface UIStore {
   setPref<K extends keyof Prefs>(key: K, value: Prefs[K]): void
   toggleSettings(open: boolean): void
   startLesson(): void
+  startDaily(): void
+  startMatch(): void
+  shareDaily(): void
 }
 
 function strokeDurationMs(sim: SimState): number {
@@ -183,23 +233,41 @@ function markLessonDone(): void {
 export const useGame = create<UIStore>((set, get) => {
   /** Apply an action to the sim, log it, autosave. Returns the next state or null. */
   function dispatch(action: SimAction): SimState | null {
-    const { sim, tier, actions } = get()
+    const { sim, tier, actions, mode } = get()
     try {
       const next = reduce(sim, action)
       const log = [...actions, action]
-      if (next.phase === 'runComplete') {
-        clearRun()
-        if (next.runEnd === 'complete' && tier !== PRACTICE) {
-          const meta = loadMeta()
-          if (tier === meta.unlockedTier && tier < 8) {
-            saveMeta({ v: 1, unlockedTier: tier + 1 })
-            set({ unlockedTier: tier + 1 })
-          }
+      if (mode === 'daily') {
+        // One attempt: progress is recorded, never resumable.
+        const done = next.scores.length
+        const par = next.holes.slice(0, done).reduce((a, h) => a + h.par, 0)
+        const total = next.scores.reduce((a, b) => a + b, 0)
+        const rec = loadDaily()
+        if (rec) {
+          const finished = next.phase === 'runComplete'
+          saveDaily({
+            ...rec,
+            finished,
+            holes: done,
+            toPar: done > 0 ? total - par : null,
+            streak: finished && next.runEnd === 'complete' ? rec.streak + 1 : rec.streak,
+          })
         }
-      } else {
-        saveRun({ v: 1, seed: sim.seed, tier, course: loadCoursePref(), actions: log })
+      } else if (mode === 'tour') {
+        if (next.phase === 'runComplete') {
+          clearRun()
+          if (next.runEnd === 'complete' && tier !== PRACTICE) {
+            const meta = loadMeta()
+            if (tier === meta.unlockedTier && tier < 8) {
+              saveMeta({ v: 1, unlockedTier: tier + 1 })
+              set({ unlockedTier: tier + 1 })
+            }
+          }
+        } else if (tier !== PRACTICE) {
+          saveRun({ v: 1, seed: sim.seed, tier, course: loadCoursePref(), actions: log })
+        }
       }
-      set({ actions: log, hasSave: next.phase !== 'runComplete' })
+      set({ actions: log, hasSave: loadRun() !== null })
       return next
     } catch (e) {
       if (e instanceof SimError) {
@@ -216,6 +284,8 @@ export const useGame = create<UIStore>((set, get) => {
     prefs: bootPrefs,
     settingsOpen: false,
     lesson: null,
+    mode: 'tour' as GameMode,
+    ghost: null,
     sim: initRound('title-bg', SUNNYVALE_FRONT_9),
     tier: PRACTICE,
     actions: [],
@@ -444,6 +514,8 @@ export const useGame = create<UIStore>((set, get) => {
         tier,
         actions: [],
         hasSave: tier !== PRACTICE,
+        mode: 'tour',
+        ghost: null,
         prevSim: null,
         selected: [],
         aceDecls: {},
@@ -469,6 +541,8 @@ export const useGame = create<UIStore>((set, get) => {
           tier: saved.tier,
           actions: saved.actions,
           hasSave: true,
+          mode: 'tour',
+          ghost: null,
           prevSim: null,
           selected: [],
           aceDecls: {},
@@ -507,6 +581,8 @@ export const useGame = create<UIStore>((set, get) => {
         tier: PRACTICE,
         actions: [],
         hasSave: loadRun() !== null,
+        mode: 'tour',
+        ghost: null,
         prevSim: null,
         selected: [],
         aceDecls: {},
@@ -518,6 +594,91 @@ export const useGame = create<UIStore>((set, get) => {
         error: null,
         lesson: 'swingBig',
       })
+    },
+
+    startDaily() {
+      const date = utcToday()
+      const rec = loadDaily()
+      if (rec?.date === date && rec.started) return // one attempt (GDD §11)
+      const course = COURSES[dailyCourse(date)]
+      const cfg = {
+        ...tierConfig(3),
+        bag: [...DEFAULT_BAG],
+        putter: 'blade' as const,
+      }
+      const sim = initRound(dailySeed(date), course.run, cfg)
+      // The attempt is burned the moment you tee off.
+      const prevStreak = rec?.streak ?? 0
+      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10)
+      const streak = rec?.date === yesterday || rec?.date === date ? prevStreak : 0
+      saveDaily({ v: 1, date, started: true, finished: false, holes: 0, toPar: null, streak })
+      set({
+        screen: 'game',
+        sim,
+        tier: 3,
+        actions: [],
+        hasSave: loadRun() !== null,
+        mode: 'daily',
+        ghost: null,
+        prevSim: null,
+        selected: [],
+        aceDecls: {},
+        armedClub: null,
+        animating: false,
+        animSeq: 0,
+        animMs: 400,
+        done: null,
+        error: null,
+        lesson: null,
+      })
+    },
+
+    startMatch() {
+      const seed = freshSeed()
+      const course = COURSES[loadCoursePref()]
+      const cfg = { ...DEFAULT_CONFIG, bag: [...loadBagPrefs().bag], putter: loadBagPrefs().putter }
+      // The Club Pro plays the same seed, bare-handed, before you do.
+      const ghostCfg = { ...DEFAULT_CONFIG }
+      let ghostSim = initRound(seed, course.run, ghostCfg)
+      const rng = seedStream(seed, 'ghost-policy')
+      let guard = 0
+      while (ghostSim.phase !== 'runComplete' && guard++ < 900) {
+        ghostSim = reduceInPlace(ghostSim, policyAction(ghostSim, 'optimal', rng))
+      }
+      const ghost: Ghost = { name: 'The Club Pro', scores: ghostSim.scores }
+      const sim = initRound(seed, course.run, cfg)
+      set({
+        screen: 'game',
+        sim,
+        tier: PRACTICE,
+        actions: [],
+        hasSave: loadRun() !== null,
+        mode: 'match',
+        ghost,
+        prevSim: null,
+        selected: [],
+        aceDecls: {},
+        armedClub: null,
+        animating: false,
+        animSeq: 0,
+        animMs: 400,
+        done: null,
+        error: null,
+        lesson: null,
+      })
+    },
+
+    shareDaily() {
+      const rec = loadDaily()
+      if (!rec) return
+      const score =
+        rec.toPar === null ? `out at ${rec.holes}` : rec.toPar === 0 ? 'E' : rec.toPar > 0 ? `+${rec.toPar}` : `${rec.toPar}`
+      const text = `POKER GOLF daily ${rec.date}: ${score} thru ${rec.holes} · streak ${rec.streak}`
+      try {
+        void navigator.clipboard.writeText(text)
+      } catch {
+        /* clipboard may be unavailable */
+      }
     },
   }
 })

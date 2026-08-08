@@ -806,6 +806,10 @@ body {
   display: flex;
   gap: 5px;
 }
+.match-chip {
+  font-size: calc(17px * var(--text-scale, 1));
+  letter-spacing: 0.04em;
+}
 .lesson-line {
   color: var(--cream);
   font-style: italic;

@@ -1,11 +1,26 @@
 import { CADDIES, toParString } from '../../sim/index'
 import { t } from '../i18n'
-import { useGame } from '../store'
+import { matchStatus, useGame } from '../store'
 
 const SUIT_GLYPH = { S: '♠', H: '♥', D: '♦', C: '♣' } as const
 
+function MatchChip(): JSX.Element {
+  const sim = useGame((s) => s.sim)
+  const ghost = useGame((s) => s.ghost)!
+  const { up, thru } = matchStatus(sim.scores, ghost)
+  const label = up === 0 ? t('match.allSquare') : up > 0 ? t('match.up', { n: up }) : t('match.down', { n: -up })
+  return (
+    <span className="match-chip">
+      {label}
+      {thru > 0 && <span className="hud-stroke"> {t('match.thru', { n: thru })}</span>}
+    </span>
+  )
+}
+
 export function Hud(): JSX.Element | null {
   const sim = useGame((s) => s.sim)
+  const mode = useGame((s) => s.mode)
+  const ghost = useGame((s) => s.ghost)
   const hole = sim.hole
   if (!hole) return null
   const spec = sim.holes[hole.index]!
@@ -44,8 +59,15 @@ export function Hud(): JSX.Element | null {
           </span>
         </div>
         <div className="hud-score num">
-          {toParString(toPar)}
-          <span className="hud-stroke">{t('hud.stroke', { n: hole.strokes + 1 })}</span>
+          {mode === 'match' && ghost ? (
+            <MatchChip />
+          ) : (
+            toParString(toPar)
+          )}
+          <span className="hud-stroke">
+            {mode === 'daily' ? `${t('daily.badge')} · ` : ''}
+            {t('hud.stroke', { n: hole.strokes + 1 })}
+          </span>
         </div>
       </div>
     </header>

@@ -20,6 +20,37 @@ export interface SavedMeta {
 
 const RUN_KEY = 'pokergolf.run.v1'
 const META_KEY = 'pokergolf.meta.v1'
+const DAILY_KEY = 'pokergolf.daily.v1'
+
+export interface DailyRecord {
+  v: 1
+  date: string
+  /** The attempt burns the moment the run starts (GDD §19). */
+  started: boolean
+  finished: boolean
+  holes: number
+  toPar: number | null
+  streak: number
+}
+
+export function loadDaily(): DailyRecord | null {
+  try {
+    const raw = localStorage.getItem(DAILY_KEY)
+    if (!raw) return null
+    const rec = JSON.parse(raw) as DailyRecord
+    return rec.v === 1 ? rec : null
+  } catch {
+    return null
+  }
+}
+
+export function saveDaily(rec: DailyRecord): void {
+  try {
+    localStorage.setItem(DAILY_KEY, JSON.stringify(rec))
+  } catch {
+    /* best effort */
+  }
+}
 
 export function saveRun(run: SavedRun): void {
   try {
