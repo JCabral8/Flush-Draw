@@ -27,7 +27,7 @@ export interface TierSpec {
  * the entry tier errs friendly) and tier 8 in the 8–15% band.
  */
 export const TIERS: readonly TierSpec[] = [
-  { tier: 1, name: 'Municipal', cut1: 1, cut2: 2, windStrength: 0.15, pinWeights: { front: 40, center: 40, back: 20 }, reshufflePenalty: 1, fringeWindow: 20, gimmeFt: 3, caddieOfferCount: 3 },
+  { tier: 1, name: 'Municipal', cut1: 1, cut2: 1, windStrength: 0.15, pinWeights: { front: 40, center: 40, back: 20 }, reshufflePenalty: 1, fringeWindow: 20, gimmeFt: 3, caddieOfferCount: 3 },
   { tier: 2, name: 'Public', cut1: 1, cut2: 1, windStrength: 0.15, pinWeights: { front: 35, center: 40, back: 25 }, reshufflePenalty: 1, fringeWindow: 20, gimmeFt: 3, caddieOfferCount: 3 },
   { tier: 3, name: 'Club', cut1: 0, cut2: 1, windStrength: 0.18, pinWeights: { front: 30, center: 40, back: 30 }, reshufflePenalty: 1, fringeWindow: 20, gimmeFt: 3, caddieOfferCount: 3 },
   { tier: 4, name: 'Amateur', cut1: 0, cut2: 0, windStrength: 0.18, pinWeights: { front: 25, center: 40, back: 35 }, reshufflePenalty: 1, fringeWindow: 20, gimmeFt: 3, caddieOfferCount: 3 },

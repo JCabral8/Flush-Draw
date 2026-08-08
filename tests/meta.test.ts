@@ -48,7 +48,7 @@ describe('tour tiers (GDD §12)', () => {
     const cfg = tierConfig(1)
     expect(cfg.cuts).toEqual([
       { afterHole: 9, maxToPar: 1 },
-      { afterHole: 18, maxToPar: 2 },
+      { afterHole: 18, maxToPar: 1 },
     ])
     expect(cfg.caddiePool.length).toBeGreaterThanOrEqual(10)
     expect(() => tierConfig(9)).toThrow()
