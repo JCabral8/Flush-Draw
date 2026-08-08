@@ -13,9 +13,13 @@
     "coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
     "sim": "tsx tools/cli.ts",
-    "simulate": "tsx tools/simulate.ts"
+    "simulate": "tsx tools/simulate.ts",
+    "build:ios": "vite build && cap sync ios",
+    "build:android": "vite build && cap sync android"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.0",
+    "@capacitor/core": "^8.5.0",
     "@types/node": "^20.14.0",
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",

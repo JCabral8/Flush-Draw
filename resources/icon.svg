@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0d2b31"/>
+      <stop offset="0.55" stop-color="#14454d"/>
+      <stop offset="0.78" stop-color="#d98e39"/>
+      <stop offset="0.8" stop-color="#0d2721"/>
+      <stop offset="1" stop-color="#0d2721"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#sky)"/>
+  <rect x="0" y="800" width="1024" height="60" fill="#2e6b4d"/>
+  <rect x="620" y="788" width="200" height="84" fill="#41905f"/>
+  <rect x="336" y="318" width="300" height="420" rx="34" fill="#f4ead0" transform="rotate(-8 486 528)"/>
+  <text x="410" y="480" font-family="Arial Narrow, Arial" font-size="150" font-weight="800" fill="#14110d" transform="rotate(-8 486 528)">A</text>
+  <path d="M486 540 c-40 52 -18 104 30 104 c48 0 70 -52 30 -104 c-14 -18 -46 -18 -60 0 z" fill="#14110d" transform="rotate(-8 486 528)"/>
+  <rect x="716" y="560" width="10" height="270" fill="#f4ead0"/>
+  <path d="M726 560 L840 596 L726 632 Z" fill="#f4ead0"/>
+  <circle cx="721" cy="838" r="26" fill="#ff6a00"/>
+</svg>

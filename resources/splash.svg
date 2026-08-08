@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2732 2732">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0d2b31"/>
+      <stop offset="0.6" stop-color="#14454d"/>
+      <stop offset="0.82" stop-color="#d98e39"/>
+      <stop offset="0.84" stop-color="#0d2721"/>
+      <stop offset="1" stop-color="#0d2721"/>
+    </linearGradient>
+  </defs>
+  <rect width="2732" height="2732" fill="url(#sky)"/>
+  <text x="1366" y="1300" text-anchor="middle" font-family="Arial Narrow, Arial" font-size="220" font-weight="800" letter-spacing="60" fill="#f4ead0">POKER GOLF</text>
+  <text x="1366" y="1420" text-anchor="middle" font-family="Arial" font-size="64" font-style="italic" fill="#cfc4a8">Every shot is a poker hand.</text>
+  <circle cx="1366" cy="2295" r="40" fill="#ff6a00"/>
+</svg>

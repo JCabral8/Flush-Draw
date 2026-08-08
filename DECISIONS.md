@@ -99,3 +99,13 @@ The GDD §20 target says par should be modal with ~18% birdies for the optimal p
 
 **D32 — Optimal values caddies; Silent Sam is priced as a trap.**
 The rarity-greedy ceremony pick hired Silent Sam ~25% of runs and died deck-dead. Optimal now carries a value table (Marguerite top, Sam negative) and walks on rather than hiring him. Sam remains a fine card for *players* with a low-card discipline — the policy just isn't one.
+
+
+**D33 — Persimmon/Do-Over snapshots are taken after the charge is spent, before the stroke resolves.**
+A retake restores deck/hand/ball/strokes but never the charge, and the scatter stream has advanced — the retake is a genuine re-roll, deterministic in the action log (`retake` is an action). The window closes on any other action.
+
+**D34 — The post-launch content ledger (the honest list).** ⚠
+Shipped: 24 clubs + 4 putters (all mechanical), 40 caddies (all mechanical), 2 full courses (54 authored holes), tour/practice/daily/match/lesson modes, save-resume, balance harness. Deferred to post-launch content patches, all on existing hooks: the four interactive-declaration caddies (Bookie, Doubling Cube, Forecaster, Mule) which need mid-run declaration UI; modifier cards (need a non-standard card-id scheme); the remaining four courses (schema + validator ready); the Green Fees cosmetic economy and achievement-gated unlocks (clubs currently all unlocked; the GDD's achievement table stands as the design). Ace Bandage was cut for The Do-Over (wild-ace search is combinatorially hostile to the balance policies); The Monk ships as "no face cards" because duplicate card ids don't exist yet. The Line Reader was cut as redundant — pillar 1 gives every player exact putt previews.
+
+**D35 — Daily and Match Play are serverless by construction.**
+Daily: seed = `daily-<UTC date>`, course rotates by date, tier-3 rules, standard bag for fairness, one attempt burned at the first tee (restart-scouting the deck order was the exploit), local streaks, clipboard share. Match Play: the ghost is the optimal policy playing the same seed bare-handed (~150 ms to generate); a ghost is just (seed, scores), which is also the wire format if real async duels get a backend later.
