@@ -23,12 +23,16 @@ interface Args {
   runs: number
   tiers: number[]
   policies: PolicyName[]
+  cut1: number | null
+  cut2: number | null
 }
 
 function parseArgs(argv: string[]): Args {
   let runs = 500
   let tiers = [1, 2, 3, 4, 5, 6, 7, 8]
   let policies: PolicyName[] = ['naive', 'greedy', 'optimal']
+  let cut1: number | null = null
+  let cut2: number | null = null
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--runs') runs = Number(argv[++i])
     if (argv[i] === '--tiers') {
@@ -41,8 +45,10 @@ function parseArgs(argv: string[]): Args {
         : spec.split(',').map(Number)
     }
     if (argv[i] === '--policies') policies = argv[++i]!.split(',') as PolicyName[]
+    if (argv[i] === '--cut1') cut1 = Number(argv[++i])
+    if (argv[i] === '--cut2') cut2 = Number(argv[++i])
   }
-  return { runs, tiers, policies }
+  return { runs, tiers, policies, cut1, cut2 }
 }
 
 interface CellStats {
@@ -84,7 +90,10 @@ function pct(n: number, d: number): string {
 }
 
 function playRun(tier: number, policy: PolicyName, seed: string, stats: CellStats): void {
-  let st: SimState = initRound(seed, SUNNYVALE_RUN, tierConfig(tier))
+  const config = tierConfig(tier)
+  if (args.cut1 !== null) config.cuts[0]!.maxToPar = args.cut1
+  if (args.cut2 !== null) config.cuts[1]!.maxToPar = args.cut2
+  let st: SimState = initRound(seed, SUNNYVALE_RUN, config)
   const rng = seedStream(seed, `policy-${policy}`)
   let actions = 0
   while (st.phase !== 'runComplete' && actions < 900) {
@@ -113,7 +122,8 @@ function playRun(tier: number, policy: PolicyName, seed: string, stats: CellStat
   })
 }
 
-const { runs, tiers, policies } = parseArgs(process.argv.slice(2))
+const args = parseArgs(process.argv.slice(2))
+const { runs, tiers, policies } = args
 const t0 = Date.now()
 const results = new Map<string, CellStats>()
 
@@ -128,7 +138,8 @@ for (const tier of tiers) {
     console.log(
       `tier ${tier} ${policy.padEnd(7)} win ${pct(stats.wins, stats.runs).padStart(6)}  ` +
         `cut1✗ ${pct(stats.missedCut1, stats.runs).padStart(6)}  ` +
-        `cut2✗ ${pct(stats.missedCut2, stats.runs).padStart(6)}  [${elapsed}s]`,
+        `cut2✗ ${pct(stats.missedCut2, stats.runs).padStart(6)}  ` +
+        `deckDead ${pct(stats.deckDead, stats.runs).padStart(6)}  [${elapsed}s]`,
     )
   }
 }
@@ -160,14 +171,14 @@ for (const tier of tiers) {
 lines.push('')
 lines.push('## Where runs die / per-hole scoring (optimal policy)')
 lines.push('')
-lines.push('| Tier | miss cut 1 | miss cut 2 | median strokes (wins) | median actions | est. minutes | birdie+ | par | double+ |')
-lines.push('|---|---:|---:|---:|---:|---:|---:|---:|---:|')
+lines.push('| Tier | miss cut 1 | miss cut 2 | deck dead | median strokes (wins) | median actions | est. minutes | birdie+ | par | double+ |')
+lines.push('|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|')
 for (const tier of tiers) {
   const s = results.get(`${tier}:optimal`)
   if (!s) continue
   const estMin = ((median(s.actionsPerRun) * 5.5) / 60).toFixed(1)
   lines.push(
-    `| ${tier} | ${pct(s.missedCut1, s.runs)} | ${pct(s.missedCut2, s.runs)} | ${median(s.finalStrokes) || '—'} | ${median(s.actionsPerRun)} | ${estMin} | ${diffPct(s, (d) => d < 0)} | ${diffPct(s, (d) => d === 0)} | ${diffPct(s, (d) => d >= 2)} |`,
+    `| ${tier} | ${pct(s.missedCut1, s.runs)} | ${pct(s.missedCut2, s.runs)} | ${pct(s.deckDead, s.runs)} | ${median(s.finalStrokes) || '—'} | ${median(s.actionsPerRun)} | ${estMin} | ${diffPct(s, (d) => d < 0)} | ${diffPct(s, (d) => d === 0)} | ${diffPct(s, (d) => d >= 2)} |`,
   )
 }
 lines.push('')

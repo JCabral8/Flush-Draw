@@ -1,4 +1,3 @@
-import { CADDIES } from './caddies'
 import { cardFromId, type CardId } from './cards'
 import { previewSwingAction } from './engine'
 import { HAND_ORDER } from './hands'
@@ -173,16 +172,36 @@ function swingCandidates(state: SimState): SwingCandidate[] {
   return out
 }
 
+/**
+ * Optimal's read on each caddie for a policy that plays bare hands and does
+ * not manage the deck around rule-breakers. Silent Sam is a trap for it —
+ * the first sweep showed it hiring him ~25% of runs and dying deck-dead.
+ */
+const CADDIE_VALUE: Partial<Record<string, number>> = {
+  marguerite: 9,
+  wanda: 8,
+  tony: 7,
+  wren: 6,
+  nephew: 5,
+  bobby: 5,
+  penny: 4,
+  greenskeeper: 4,
+  statistician: 2,
+  silentSam: -5,
+}
+
 function ceremonyPick(state: SimState, policy: PolicyName, rng: RngState): SimAction {
   const offers = state.offers
   if (policy === 'naive') return { type: 'caddie', pick: offers[nextInt(rng, offers.length)]! }
   if (policy === 'greedy') return { type: 'caddie', pick: offers[0]! }
-  const order = ['legendary', 'rare', 'uncommon', 'common'] as const
-  for (const rarity of order) {
-    const found = offers.find((id) => CADDIES[id].rarity === rarity)
-    if (found) return { type: 'caddie', pick: found }
+  let best = offers[0]!
+  for (const id of offers) {
+    if ((CADDIE_VALUE[id] ?? 3) > (CADDIE_VALUE[best] ?? 3)) best = id
   }
-  return { type: 'caddie', pick: offers[0]! }
+  if ((CADDIE_VALUE[best] ?? 3) <= 0 && state.caddies.length > 0) {
+    return { type: 'caddie', pick: null } // nothing worth hiring: walk on
+  }
+  return { type: 'caddie', pick: best }
 }
 
 /** Choose this policy's next action for the current state. Always legal. */

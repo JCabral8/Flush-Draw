@@ -419,14 +419,16 @@ Cut lines are **cumulative score at or under** the threshold, checked after hole
 
 | Tier | Card | Cut 1 (after 9) | Cut 2 (after 18) | Wind | Pin weights F/C/B | Modifiers |
 |---|---|---:|---:|---|---|---|
-| 1 | Municipal | +6 | +9 | ±15% | 40/40/20 | — |
-| 2 | Public | +4 | +7 | ±15% | 35/40/25 | — |
-| 3 | Club | +3 | +5 | ±18% | 30/40/30 | — |
-| 4 | Amateur | +2 | +3 | ±18% | 25/40/35 | Deep rough widens |
-| 5 | Q-School | +1 | +2 | ±20% | 20/40/40 | Reshuffle costs +2 |
-| 6 | Tour | 0 | 0 | ±20% | 20/35/45 | Fringe window shrinks to 15 yds |
-| 7 | Major | −1 | −2 | ±22% | 15/35/50 | Gimme radius 2 ft |
+| 1 | Municipal | +1 | +2 | ±15% | 40/40/20 | — |
+| 2 | Public | +1 | +1 | ±15% | 35/40/25 | — |
+| 3 | Club | 0 | +1 | ±18% | 30/40/30 | — |
+| 4 | Amateur | 0 | 0 | ±18% | 25/40/35 | — |
+| 5 | Q-School | −1 | 0 | ±20% | 20/40/40 | Reshuffle costs +2 |
+| 6 | Tour | −1 | −1 | ±20% | 20/35/45 | Fringe window shrinks to 15 yds |
+| 7 | Major | −2 | −2 | ±22% | 15/35/50 | Gimme radius 2 ft |
 | 8 | Immortal | −2 | −4 | ±25% | 10/30/60 | Caddie offers 2, not 3 |
+
+*(Cut lines retuned at M6 by Monte Carlo — the original +6/+9 entry cuts passed near-optimal play 96% of the time. See `BALANCE.md` and DECISIONS D30. The game scores birdie-rich for precise play, so par-relative cut lines sit lower than traditional golf intuition suggests.)*
 
 Tier N+1 unlocks by completing (all 27 holes of) Tier N. Note tier modifiers make *long* worse or *resources* scarcer — never make short more forgiving (pillar 2 holds in both directions).
 

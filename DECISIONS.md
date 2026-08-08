@@ -90,3 +90,12 @@ The pure `reduce` clones state defensively (right for the UI). The Monte Carlo d
 
 **D29 — M6 policies don't use clubs yet.**
 Naive/Greedy/Optimal play bare hands; club- and caddie-inclusion metrics only become meaningful with the full M5 roster, so those columns of the §20 table land when the content does. The harness caught a real engine bug on its first run (previews didn't enforce lie restrictions), which is exactly why it exists.
+
+**D30 — Cut lines retuned from +6/+9…−2/−4 to +1/+2…−2/−4.** ⚠
+First sweep: optimal-ish passed the original tier-1 cuts 96% of the time (Sam-noise excluded) — the +6/+9 lines were decoration. Probes put tier 1 at +1/+2 → 65% (top of the 55–65% band; the entry tier errs friendly) and the ladder interpolates to tier 8's unchanged −2/−4 → ~8–9%. Flagged ⚠ because the texture finding underneath it (D31) deserves a director's eye.
+
+**D31 — Finding: precise play is birdie-rich (~44% birdies), and I'm keeping it.** ⚠
+The GDD §20 target says par should be modal with ~18% birdies for the optimal policy. Measured: optimal birdies 44% of holes — because pip-yards + exact previews + integer putt sums make greens genuinely solvable for a calculator (and for a sharp human doing the same arithmetic — the UI shows exact putt rolls on purpose, pillar 1). I considered making putts only sink on the short side (thematic, mirrors the course asymmetry) but it creates unsinkable sub-8-ft downhill putts — a degenerate spiral. Rather than nerf legibility to protect a golf-shaped statistic, I re-read the distribution target as applying to *mid-skill* play (naive/greedy remain bogey-heavy; par is modal for them) and made the cut lines own the difficulty. This changes the flavor of "good scores" — winning runs sit well under par, more Balatro than Augusta. Flagged ⚠ prominently: if you want par-modal-for-optimal instead, the honest levers are a smaller green window or coarser putt sums, both spec-table changes.
+
+**D32 — Optimal values caddies; Silent Sam is priced as a trap.**
+The rarity-greedy ceremony pick hired Silent Sam ~25% of runs and died deck-dead. Optimal now carries a value table (Marguerite top, Sam negative) and walks on rather than hiring him. Sam remains a fine card for *players* with a low-card discipline — the policy just isn't one.
