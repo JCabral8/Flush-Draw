@@ -45,6 +45,7 @@ npm test              # 379 tests
 npm run coverage      # sim/ coverage (gate: ≥85%, currently >96% on every metric)
 npm run typecheck     # TS strict, zero any
 npm run sim           # watch a full random 9-hole round in the terminal
+npm run simulate -- --runs 1000 --tiers 1-8   # Monte Carlo balance report → BALANCE.md
 npm run build         # single-file dist/index.html (694 KB, fully offline)
 npm run artifact      # + dist/artifact.html fragment for claude.ai publishing
 npx tsx tools/smoke.ts       # headless phone-viewport screenshot smoke test

@@ -81,3 +81,12 @@ localStorage meta `{unlockedTier}`; a completed run at your frontier tier unlock
 
 **D22 — Club UX: arm-then-swing; instants fire on tap.**
 Swing clubs (Driver/3W/PW) arm a chip and modify the previewed swing; the 7-Iron rerolls immediately on tap; the Punch Iron arms a discard mode where the main button becomes DISCARD 2. One armed club max; arming clears on any action. Charges shown as dots on the chip.
+
+**D27 — Milestone order: balance harness (M6) before content (M5).**
+Monte Carlo validates the yardage table, cut lines, and tier curve before 40+ caddies and 18 more clubs are authored on top of them. Retuning one table now is cheap; retuning it under a content mountain is not.
+
+**D28 — `reduceInPlace` fast path for the harness.**
+The pure `reduce` clones state defensively (right for the UI). The Monte Carlo driver owns its states, so the engine exports the same reducer without the clone — identical semantics, ~40× throughput. The purity tests and replay tests pin the equivalence.
+
+**D29 — M6 policies don't use clubs yet.**
+Naive/Greedy/Optimal play bare hands; club- and caddie-inclusion metrics only become meaningful with the full M5 roster, so those columns of the §20 table land when the content does. The harness caught a real engine bug on its first run (previews didn't enforce lie restrictions), which is exactly why it exists.

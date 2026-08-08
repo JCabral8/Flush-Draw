@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
-    "sim": "tsx tools/cli.ts"
+    "sim": "tsx tools/cli.ts",
+    "simulate": "tsx tools/simulate.ts"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",

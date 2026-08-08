@@ -574,7 +574,16 @@ function reduceCaddie(state: SimState, pick: CaddieId | null, events: string[]):
 
 /** Pure reducer: same state + same action → same next state. */
 export function reduce(state: SimState, action: SimAction): SimState {
-  const next = structuredClone(state) as SimState
+  return reduceInPlace(structuredClone(state) as SimState, action)
+}
+
+/**
+ * The reducer without the defensive clone — identical semantics, mutates its
+ * input. For the Monte Carlo harness and other tight loops that own their
+ * state. UI code should use reduce().
+ */
+export function reduceInPlace(state: SimState, action: SimAction): SimState {
+  const next = state
   next.lastEvents = []
   const events = next.lastEvents
   switch (action.type) {
@@ -627,6 +636,7 @@ export function previewSwingAction(
   validateSelection(state, cards)
   const hand: HandEval = evaluateHand(cards)
   const rules = effectiveRules(state, ball.lie)
+  assertSwingLegal(ball.lie, hand, rules)
   const caddie = caddieSwing(state, hand)
   return previewSwing(hand, ball.lie, state.hole.wind, caddie.windStrength, rules, clubSpec, caddie.mods)
 }
