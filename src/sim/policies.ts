@@ -1,10 +1,10 @@
 import { cardFromId, type CardId } from './cards'
-import { previewSwingAction } from './engine'
+import { previewSwingAction, puttOpts } from './engine'
 import { HAND_ORDER } from './hands'
 import { lieAt, waterDropPos } from './holes'
 import { previewPutt } from './putting'
 import { nextInt, type RngState } from './rng'
-import { putterMaxCards } from './clubs'
+import { PUTTERS, putterMaxCards } from './clubs'
 import { SimError, type GreenState, type LayoutLie, type SimAction, type SimState } from './types'
 
 /**
@@ -122,6 +122,8 @@ function puttCandidates(state: SimState): PuttCandidate[] {
         hole.pin,
         maxCards,
         state.config.gimmeFt,
+        PUTTERS[state.config.putter],
+        puttOpts(state),
       )
       const ranksSpent = cards.reduce((a, id) => {
         const r = cardFromId(id).rank
@@ -178,15 +180,45 @@ function swingCandidates(state: SimState): SwingCandidate[] {
  * the first sweep showed it hiring him ~25% of runs and dying deck-dead.
  */
 const CADDIE_VALUE: Partial<Record<string, number>> = {
+  calamityJane: 12,
+  bigEarl: 10,
+  doOver: 10,
+  membership: 9,
   marguerite: 9,
+  ghost: 8,
   wanda: 8,
+  gripCoach: 8,
+  hustler: 7,
   tony: 7,
+  galleryFavorite: 7,
+  architect: 6,
   wren: 6,
+  mrsChen: 6,
+  ironMike: 6,
+  vegas: 5,
   nephew: 5,
   bobby: 5,
+  accountant: 5,
+  superstitious: 5,
+  docSands: 4,
   penny: 4,
   greenskeeper: 4,
+  groundhog: 4,
+  milkman: 4,
+  bagpiper: 3,
+  beverageCart: 3,
+  bartender: 3,
+  chameleon: 3,
+  junior: 3,
+  rulesLawyer: 3,
+  ballhawk: 3,
+  flatCapFred: 2,
   statistician: 2,
+  yardageBook: 2,
+  cormac: 2,
+  prosEx: 2,
+  nightOwl: 2,
+  monk: 1, // fine hire, but the policy can't lean into a no-faces deck
   silentSam: -5,
 }
 

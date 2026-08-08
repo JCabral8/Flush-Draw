@@ -146,10 +146,20 @@ export interface SimState {
   runEnd: RunEndReason | null
   /** Reshuffles taken this round (Lucky Penny forgives the first). */
   reshufflesThisRound: number
-  /** Persimmon: pre-stroke snapshot; a 'retake' action restores it. */
+  /** Persimmon/Do-Over: pre-stroke snapshot; a 'retake' action restores it. */
   mulligan: MulliganSnapshot | null
+  /** Who opened the retake window ('club' = Persimmon, 'caddie' = Do-Over). */
+  mulliganSource: 'club' | 'caddie' | null
   /** Mashie: deck cards revealed by the last peek (top of deck last). */
   peeked: CardId[]
+  /** Caddie ability bookkeeping, reset per hole / per round / never. */
+  caddieUses: {
+    hole: Partial<Record<CaddieId, number>>
+    round: Partial<Record<CaddieId, number>>
+    run: Partial<Record<CaddieId, number>>
+  }
+  /** Last completed hole's score-to-par (Beverage Cart / Bagpiper). */
+  lastHoleDiff: number | null
 }
 
 export interface MulliganSnapshot {

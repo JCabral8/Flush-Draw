@@ -4,6 +4,7 @@ import {
   PUTTERS,
   previewPutt,
   previewSwingAction,
+  puttOpts,
   putterMaxCards,
   SimError,
 } from '../../sim/index'
@@ -52,6 +53,7 @@ function computePreview(): Preview {
         putterMaxCards(sim.config.putter, sim.config.puttMaxCards),
         sim.config.gimmeFt,
         PUTTERS[sim.config.putter],
+        puttOpts(sim),
       )
       return {
         label: t('action.putt'),

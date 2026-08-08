@@ -29,6 +29,7 @@ export function planPutt(
   pin: Pin,
   maxCards: number,
   putter?: PutterSpec,
+  opts?: { faceAs?: number },
 ): PuttPlan {
   if (cards.length === 0) throw new SimError('play at least 1 card to putt')
   if (cards.length > maxCards) throw new SimError(`at most ${maxCards} cards on a putt`)
@@ -42,6 +43,9 @@ export function planPutt(
         throw new SimError(`declare ${id} as 1 or 14 before putting`)
       }
       return declared
+    }
+    if (opts?.faceAs !== undefined && card.rank >= 11 && card.rank <= 13) {
+      return opts.faceAs // Vegas: everything's a 5 if you're brave enough
     }
     return card.rank
   })
@@ -62,7 +66,12 @@ export interface PuttOutcome {
 }
 
 /** Resolve a planned putt against the green (GDD §4.1). Pure. */
-export function resolvePutt(plan: PuttPlan, green: GreenState, gimmeFt: number): PuttOutcome {
+export function resolvePutt(
+  plan: PuttPlan,
+  green: GreenState,
+  gimmeFt: number,
+  opts?: { noPast?: boolean },
+): PuttOutcome {
   const diff = green.distFt - plan.rolled
   if (Math.abs(diff) <= gimmeFt) {
     return { rolled: plan.rolled, holed: true, next: null, blewPast: false }
@@ -73,6 +82,15 @@ export function resolvePutt(plan: PuttPlan, green: GreenState, gimmeFt: number):
       rolled: plan.rolled,
       holed: false,
       next: { distFt: diff, downhill: green.downhill },
+      blewPast: false,
+    }
+  }
+  if (opts?.noPast) {
+    // Calamity Jane: the ball dies on the lip instead of racing by.
+    return {
+      rolled: plan.rolled,
+      holed: false,
+      next: { distFt: 3, downhill: green.downhill },
       blewPast: false,
     }
   }
@@ -93,7 +111,8 @@ export function previewPutt(
   maxCards: number,
   gimmeFt: number,
   putter?: PutterSpec,
+  opts?: { faceAs?: number; noPast?: boolean },
 ): PuttOutcome {
-  const plan = planPutt(action.cards, action.aceValues, green, pin, maxCards, putter)
-  return resolvePutt(plan, green, putter?.gimmeFt ?? gimmeFt)
+  const plan = planPutt(action.cards, action.aceValues, green, pin, maxCards, putter, opts)
+  return resolvePutt(plan, green, putter?.gimmeFt ?? gimmeFt, opts)
 }
